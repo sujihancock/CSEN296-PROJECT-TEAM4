@@ -1,4 +1,4 @@
-# ChangSupport.AI 🛡️🤖
+# ChangSupport.AI 
 
 > **CSEN 296B Final Capstone Project**  
 > **Team 4 Members**: Alexandre Lopes, Ariana Sun, Jeromy Chang, Raphael Kusuma, Suji Hancock  
@@ -19,7 +19,7 @@ Crucially, the architecture incorporates an **independent, non-bypassable policy
 
 ---
 
-## 🏛️ System Architecture
+## System Architecture
 
 ```mermaid
 flowchart TD
@@ -74,7 +74,7 @@ flowchart TD
 
 ---
 
-## 🚀 Quick Start Guide
+## Quick Start Guide
 
 ### Prerequisites
 - Python 3.9+
@@ -106,7 +106,7 @@ chmod +x start.sh
 
 ---
 
-## 🧪 Testing & Red Teaming
+## Testing & Red Teaming
 
 Run the full automated test suite (including unit tests, workflow integration, and red team adversarial simulations):
 
@@ -123,5 +123,5 @@ PYTHONPATH=. ./.venv/bin/pytest tests/ -v
 ---
 
 ## 👥 Team Responsibilities
-- **Red Team** (Adversarial testing & vulnerability discovery): Suji Hancock, Alex Lopes, Ariana Sun
+- **Red Team** (Adversarial testing & vulnerability discovery): Suji Hancock, Alexandre Lopes, Ariana Sun
 - **Blue Team** (Security controls, guardrails, & remediation): Jeromy Chang, Raphael Kusuma
