@@ -1,8 +1,8 @@
 import pytest
-from backend.database import init_db, get_connection
-from backend.agents.orchestrator import CoreOrchestrator
-from backend.guardrails.policy_engine import PolicyGuardrailEngine
-from backend.agents.specialized.records import RecordsSpecialist
+from app.backend.database import init_db, get_connection
+from app.backend.agents.orchestrator import CoreOrchestrator
+from app.backend.guardrails.policy_engine import PolicyGuardrailEngine
+from app.backend.agents.specialized.records import RecordsSpecialist
 
 @pytest.fixture(autouse=True)
 def setup_database():

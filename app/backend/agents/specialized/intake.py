@@ -1,7 +1,7 @@
 import sqlite3
 import uuid
 from typing import Dict, Any
-from backend.database import get_connection
+from app.backend.database import get_connection
 
 class IntakeSpecialist:
     """

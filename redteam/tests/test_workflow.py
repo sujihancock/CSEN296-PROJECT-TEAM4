@@ -1,6 +1,6 @@
 import pytest
-from backend.database import init_db, get_connection
-from backend.agents.orchestrator import CoreOrchestrator
+from app.backend.database import init_db, get_connection
+from app.backend.agents.orchestrator import CoreOrchestrator
 
 @pytest.fixture(autouse=True)
 def setup_database():

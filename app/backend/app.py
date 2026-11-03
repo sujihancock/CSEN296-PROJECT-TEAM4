@@ -4,13 +4,13 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from backend.database import init_db, get_connection
-from backend.config import MAX_AUTONOMOUS_REFUND_PER_TX, MAX_WEEKLY_CUMULATIVE_REFUNDS, BASE_DIR
-from backend.guardrails.policy_engine import PolicyGuardrailEngine
-from backend.rag.policy_rag import PolicyRAG
-from backend.agents.orchestrator import CoreOrchestrator
-from backend.agents.specialized.email import EmailSpecialist
-from backend.agents.specialized.reporting import ReportingSpecialist
+from app.backend.database import init_db, get_connection
+from app.backend.config import MAX_AUTONOMOUS_REFUND_PER_TX, MAX_WEEKLY_CUMULATIVE_REFUNDS, BASE_DIR
+from app.backend.guardrails.policy_engine import PolicyGuardrailEngine
+from app.backend.rag.policy_rag import PolicyRAG
+from app.backend.agents.orchestrator import CoreOrchestrator
+from app.backend.agents.specialized.email import EmailSpecialist
+from app.backend.agents.specialized.reporting import ReportingSpecialist
 
 app = FastAPI(title="ChangSupport.AI API", version="1.0.0")
 

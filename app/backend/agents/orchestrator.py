@@ -1,12 +1,12 @@
 import sqlite3
 from typing import Dict, Any, List
-from backend.database import get_connection
-from backend.agents.specialized.intake import IntakeSpecialist
-from backend.agents.specialized.email import EmailSpecialist
-from backend.agents.specialized.records import RecordsSpecialist
-from backend.agents.specialized.refunds import RefundsSpecialist
-from backend.agents.specialized.reporting import ReportingSpecialist
-from backend.guardrails.policy_engine import PolicyGuardrailEngine
+from app.backend.database import get_connection
+from app.backend.agents.specialized.intake import IntakeSpecialist
+from app.backend.agents.specialized.email import EmailSpecialist
+from app.backend.agents.specialized.records import RecordsSpecialist
+from app.backend.agents.specialized.refunds import RefundsSpecialist
+from app.backend.agents.specialized.reporting import ReportingSpecialist
+from app.backend.guardrails.policy_engine import PolicyGuardrailEngine
 
 class CoreOrchestrator:
     """

@@ -1,8 +1,8 @@
 import sqlite3
 from datetime import datetime, timedelta
 from typing import Dict, Any, Tuple
-from backend.config import MAX_AUTONOMOUS_REFUND_PER_TX, MAX_WEEKLY_CUMULATIVE_REFUNDS
-from backend.database import get_connection
+from app.backend.config import MAX_AUTONOMOUS_REFUND_PER_TX, MAX_WEEKLY_CUMULATIVE_REFUNDS
+from app.backend.database import get_connection
 
 class PolicyGuardrailEngine:
     """

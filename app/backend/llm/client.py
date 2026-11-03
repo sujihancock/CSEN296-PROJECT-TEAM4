@@ -2,7 +2,7 @@ import json
 import logging
 import requests
 from typing import Dict, Any, List, Optional
-from backend.config import LLM_PROVIDER, LLM_MODEL, LLM_API_BASE, LLM_API_KEY
+from app.backend.config import LLM_PROVIDER, LLM_MODEL, LLM_API_BASE, LLM_API_KEY
 
 logger = logging.getLogger("ChangSupport.LLM")
 

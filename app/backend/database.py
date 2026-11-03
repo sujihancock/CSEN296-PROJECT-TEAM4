@@ -1,7 +1,7 @@
 import sqlite3
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
-from backend.config import DB_PATH
+from app.backend.config import DB_PATH
 
 def get_connection() -> sqlite3.Connection:
     conn = sqlite3.connect(str(DB_PATH))

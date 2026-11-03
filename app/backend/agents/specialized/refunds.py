@@ -1,8 +1,8 @@
 import sqlite3
 from typing import Dict, Any, Tuple
 from datetime import datetime
-from backend.rag.policy_rag import PolicyRAG
-from backend.guardrails.policy_engine import PolicyGuardrailEngine
+from app.backend.rag.policy_rag import PolicyRAG
+from app.backend.guardrails.policy_engine import PolicyGuardrailEngine
 
 class RefundsSpecialist:
     """

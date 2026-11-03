@@ -1,7 +1,7 @@
 import math
 import re
 from typing import List, Dict, Any
-from backend.database import get_connection
+from app.backend.database import get_connection
 
 class PolicyRAG:
     """

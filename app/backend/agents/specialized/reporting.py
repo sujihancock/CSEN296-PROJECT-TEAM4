@@ -1,6 +1,6 @@
 import sqlite3
 from typing import Dict, Any, List, Optional
-from backend.database import get_connection
+from app.backend.database import get_connection
 
 class ReportingSpecialist:
     """
