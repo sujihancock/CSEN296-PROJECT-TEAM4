@@ -1,0 +1,4 @@
+# Requirements
+
+### Prerequisites
+- Python 3.9+
