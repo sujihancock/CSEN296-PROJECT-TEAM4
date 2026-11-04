@@ -1,2 +1,0 @@
-# Specialized Agents package
-
