@@ -1,123 +1,98 @@
-# ChangSupport.AI 
+# ChangSupport.AI
 
-> **CSEN 296B Final Capstone Project**  
-> **Team 4 Members**: Alexandre Lopes, Ariana Sun, Jeromy Chang, Raphael Kusuma, Suji Hancock  
-> **Topic**: AI Governance & Cybersecurity – Autonomous Enterprise Customer Support Agent
+> **CSEN 296B Capstone Project, Team 4**
+> Alexandre Lopes, Ariana Sun, Jeromy Chang, Raphael Kusuma, Suji Hancock
+> **Topic**: AI governance and cybersecurity for an autonomous enterprise customer-support agent
 
----
+ChangSupport.AI is an autonomous refund-support agent. A customer submits a refund request. An orchestrator then sends the request through five specialist agents (Intake, Records, Refunds, Email, Reporting), which do their work by calling MCP-style tools. Refunds that pass every check are paid out with no human involved.
 
-## 📖 Overview
+The point of the project is that **the LLM is not trusted**. Every tool call goes through one deterministic guardrail layer that sits outside the model. The guardrail enforces these rules:
 
-**ChangSupport.AI** is an enterprise autonomous customer support agent designed to handle refund requests, customer communications, order verifications, and policy evaluations. 
+| Control | Rule |
+|---|---|
+| Per-refund cap | Up to **$100** can be paid autonomously; anything larger is `ESCALATED` to a supervisor |
+| Weekly cap | Up to **$500** of autonomous refunds in a rolling 7-day window; past that, requests are `ESCALATED` |
+| Record isolation | Agents can only touch the session customer's own customer record, orders, cases and email address |
+| Least privilege | Each specialist has a fixed tool allowlist and cannot change it at runtime |
+| No bypassing supervisors | Only a supervisor can decide an escalated case, and an agent cannot mark a case approved without a payout |
+| Kill switch | A supervisor can revoke the agent's authority. When it is on, every tool call fails closed |
+| Audit | Every tool call and decision is written to a hash-chained, tamper-evident log |
 
-Crucially, the architecture incorporates an **independent, non-bypassable policy guardrail layer** sitting outside the LLM to enforce safety limits:
-- **Autonomous Single-Transaction Cap**: Up to **$100.00**. Any amount > $100 is escalated to a human supervisor.
-- **Weekly Cumulative Cap**: Maximum **$500.00** in autonomous refunds per rolling 7-day window.
-- **Customer Record Isolation**: Strict tenant isolation preventing unauthorized data retrieval or cross-account order claims.
-- **Emergency Kill Switch**: Allows a supervisor to immediately revoke all agent authority (fail-closed).
-- **RAG Policy Engine (ChromaDB Vector Store)**: Evaluates refund claims against enterprise return policies via dense semantic vector search (`all-MiniLM-L6-v2` embeddings).
+Refund policies are retrieved from a **ChromaDB vector store** (`all-MiniLM-L6-v2` embeddings). Two LLM backends are available:
+- **Mock LLM (default)**: deterministic, and deliberately vulnerable to prompt injection, both direct and through retrieved policy text. The red team results below were produced with it.
+- **Local Qwen model through Ollama**: optional.
 
----
+The guardrail doesn't depend on which model is used.
 
-## System Architecture
+This repo follows the course starter template. Its layout is `app/`, `redteam/`, `threat_model/`, `report/`, `presentation/` and `run_demo.py`.
+
+## Quick start
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+./start.sh            # or: uvicorn app.main:app --reload --port 8000
+```
+
+- Dashboard: <http://localhost:8000/>. Pick the Customer, Supervisor or Admin role. The **🧪 Interactive Sandbox** has one-click presets (standard refund, high-value escalation, policy denial, prompt injection) and shows the multi-agent pipeline as it runs.
+- API docs: <http://localhost:8000/docs>
+- Tests: `./start.sh test` (output saved to `redteam/test_results.txt`)
+- Full scripted demo and red team suites: `./start.sh demo` (output saved to `redteam/demo_results.txt`)
+
+**Running with a local Qwen model through Ollama**:
+```bash
+./scripts/setup_ollama.sh qwen3.5:2b
+CHANGSUPPORT_LLM_PROVIDER=ollama OLLAMA_MODEL=qwen3.5:2b ./start.sh
+```
+You can check which model is active at <http://localhost:8000/llm/status>. If Ollama can't be reached, the app falls back to the mock LLM, unless you set `OLLAMA_FALLBACK_TO_MOCK=false`.
+
+[run_instructions.md](run_instructions.md) covers the API keys, endpoints and demo script.
+
+## Architecture
 
 ```mermaid
 flowchart TD
-    subgraph UI ["Browser-based UI (Port 3000)"]
-        CustomerUI["Customer Portal"]
-        SupervisorUI["Supervisor Portal (Kill-Switch)"]
-        AdminUI["Admin Portal (RAG Policies)"]
-    end
-
-    subgraph Core ["ChangSupport.AI Core"]
-        Orchestrator["Core Orchestrator<br/>(Task Decomposition & Router)"]
-    end
-
-    subgraph Agents ["Specialized Agents"]
-        Intake["Intake Specialist"]
-        Email["Email Specialist"]
-        Records["Records Specialist"]
-        Refunds["Refunds Specialist"]
-        Reporting["Reporting Specialist"]
-    end
-
-    subgraph PolicyLayer ["Independent Policy Guardrail Engine (Non-LLM)"]
-        Guardrails["Policy Enforcement<br/>• $100 / tx limit<br/>• $500 / week cap<br/>• Record Isolation<br/>• Kill-Switch Check"]
-    end
-
-    subgraph Resources ["Storage & APIs"]
-        RAG[("ChromaDB Vector Store<br/>(Semantic Policy RAG)")]
-        DB[("Customer DB & Orders (SQLite)")]
-        BankAPI["Mock Bank Transfer"]
-        AuditLog[("Tamper-Evident Audit Trail")]
-        MockEmail["Mock Email Inbox"]
-    end
-
-    UI <--> Orchestrator
-    Orchestrator --> Intake
-    Orchestrator --> Email
-    Orchestrator --> Records
-    Orchestrator --> Refunds
-    Orchestrator --> Reporting
-
-    Intake --> DB
-    Email --> MockEmail
-    Records --> DB
-    Refunds --> RAG
-    Refunds --> Guardrails
-    Guardrails --> BankAPI
-    Reporting --> AuditLog
-
-    SupervisorUI -.->|"Override / Revoke"| Guardrails
-    AdminUI -.->|"Upload Policy"| RAG
+    UI["Browser dashboard / API client<br/>(X-API-Key → identity)"] --> API["FastAPI (app/main.py)"]
+    API --> Orch["Orchestrator (app/agent.py)"]
+    Orch --> Intake & Records & Refunds & Email & Reporting
+    Refunds --> LLM["LLM (app/llm.py)<br/>Mock or Qwen via Ollama · untrusted"]
+    Refunds --> RAG["Policy retriever (app/retriever.py)<br/>ChromaDB vector store"]
+    Intake & Records & Refunds & Email & Reporting -->|"call_tool()"| Tools["MCP-style tools (app/tools/)"]
+    Tools -->|"every call"| G["Guardrail (app/guardrails.py)<br/>allowlist · ownership · caps · kill switch"]
+    G --> DB[("SQLite: customers, orders, cases,<br/>emails, disbursement ledger")]
+    G --> Audit[("Hash-chained audit log (app/audit.py)")]
+    Sup["Supervisor"] -.->|"decide escalations / kill switch"| G
+    Admin["Admin"] -.->|"upload policies"| RAG
 ```
 
----
+| File | Role |
+|---|---|
+| [app/main.py](app/main.py) | API endpoints, API-key auth, role checks, serves the dashboard |
+| [app/agent.py](app/agent.py) | Orchestrator and the five specialist agents (workflow steps 1–8) |
+| [app/tools/](app/tools/) | Tool registry, one module per specialist (`intake`, `records`, `refunds`, `email`, `reporting`) |
+| [app/guardrails.py](app/guardrails.py) | The single enforcement point for every tool call and for money movement |
+| [app/llm.py](app/llm.py) | `MockLLM` (intentionally injectable) and `OllamaLLM` (local Qwen) |
+| [app/retriever.py](app/retriever.py), [app/vector_store.py](app/vector_store.py) | Policy retrieval backed by ChromaDB |
+| [app/audit.py](app/audit.py) | Append-only, hash-chained audit log and chain verification |
+| [app/redteam.py](app/redteam.py) | Runs `/tests/rt-XX` attacks in a sandbox DB and writes evidence |
+| [app/static/](app/static/) | Dashboard (`index.html`, `css/`, `js/`) |
 
-## Quick Start Guide
+## Red teaming
 
-1. **Start the Service & Interactive Dashboard**:
-   ```bash
-   ./start.sh
-   ```
-   Or directly via uvicorn:
-   ```bash
-   PYTHONPATH=. ./.venv/bin/python3 -m uvicorn app.main:app --port 8000 --reload
-   ```
+There are six attack suites with 23 attacks between them, in [redteam/testdata/](redteam/testdata/). You can run them from the Supervisor view in the dashboard, with `POST /tests/rt-01` … `rt-06`, or with `./start.sh demo`. Each run happens in a throwaway database, and its evidence goes to `redteam/results/RT-0X/`.
 
-2. **Running with Local Qwen Model via Ollama**:
-   - ChangSupport.AI can run with a local Qwen model (default: `qwen3.5:2b`) hosted via Ollama.
-   - Run the setup helper to pull the model:
-     ```bash
-     ./scripts/setup_ollama.sh qwen3.5:2b
-     ```
-   - Start the service with Ollama enabled:
-     ```bash
-     CHANGSUPPORT_LLM_PROVIDER=ollama OLLAMA_MODEL=qwen3.5:2b ./start.sh
-     ```
-   - Check LLM status anytime at [http://localhost:8000/llm/status](http://localhost:8000/llm/status).
+| Suite | Attack | OWASP | Result (mock LLM) |
+|---|---|---|---|
+| RT-01 | Prompt injection and cap override | LLM01 / ASI01 | Guardrail holds. **2 findings** (return-window and digital-goods bypass) |
+| RT-02 | Cross-customer access | LLM02 / ASI03 | Defended |
+| RT-03 | Parameter tampering and over-privileged tools | ASI02 | Defended |
+| RT-04 | Weekly cap exhaustion (salami slicing) | ASI02 / ASI09 | Defended |
+| RT-05 | Action after kill switch | ASI10 | Defended |
+| RT-06 | RAG policy poisoning and semantic evasion | LLM04 / LLM08 / ASI06 | $100 cap holds. **2 findings** |
 
-3. **Access the Web Dashboard**:
-   - Open [http://localhost:8000/](http://localhost:8000/) in your browser.
-   - Use the **🧪 Interactive Sandbox** to test 1-click presets (Standard Refund, High-Value Escalation, Policy Denial, Prompt Injection) and watch the multi-agent execution pipeline.
-   - Access Swagger API documentation at [http://localhost:8000/docs](http://localhost:8000/docs).
+The plan and methodology are in [redteam/plan.md](redteam/plan.md), and the threat model is in [threat_model/MAESTRO_mapping.md](threat_model/MAESTRO_mapping.md).
 
-## Testing & Red Teaming
+## Team
 
-Run the full automated test suite (including unit tests, workflow integration, and red team adversarial simulations):
-
-```bash
-PYTHONPATH=. ./.venv/bin/pytest redteam/tests/ -v
-```
-
-### In-Scope Security & Threat Scenarios Covered:
-1. **LLM01 / ASI01 - Prompt Injection**: An attacker submits a system override prompt attempting to force an autonomous $450 refund. The independent guardrail layer intercepts the request and escalates it to a human supervisor.
-2. **LLM02 / ASI03 - Sensitive Information Disclosure & Cross-Tenant Access**: Attempts to query or refund another customer's order are blocked at the records boundary.
-3. **ASI10 - Action After Revocation**: When the supervisor engages the emergency kill switch, all subsequent agent actions are terminated fail-closed.
-4. **ASI02 - Parameter Tampering / Overflow**: An attacker requests a refund amount greater than the original order price.
-
----
-
-## 👥 Team Responsibilities
-- **Red Team** (Adversarial testing & vulnerability discovery): Suji Hancock, Alexandre Lopes, Ariana Sun
-- **Blue Team** (Security controls, guardrails, & remediation): Jeromy Chang, Raphael Kusuma
+- **Red Team** (adversarial testing): Suji Hancock, Alexandre Lopes, Ariana Sun
+- **Blue Team** (controls and remediation): Jeromy Chang, Raphael Kusuma
