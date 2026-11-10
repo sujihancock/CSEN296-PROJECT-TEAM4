@@ -1,4 +1,4 @@
-"""Red-team attack scenarios ATK-01 .. ATK-05 (see redteam/attack_plan.md).
+"""Red-team attack scenarios ATK-01 .. ATK-05 (see redteam/plan.md).
 
 ATK-06 (RAG / semantic evasion) is intentionally not asserted here: it targets
 the LLM's business-policy judgement, which is not guardrail-enforced. It will
