@@ -15,7 +15,7 @@ Crucially, the architecture incorporates an **independent, non-bypassable policy
 - **Weekly Cumulative Cap**: Maximum **$500.00** in autonomous refunds per rolling 7-day window.
 - **Customer Record Isolation**: Strict tenant isolation preventing unauthorized data retrieval or cross-account order claims.
 - **Emergency Kill Switch**: Allows a supervisor to immediately revoke all agent authority (fail-closed).
-- **RAG Policy Engine**: Evaluates refund claims against enterprise return policies.
+- **RAG Policy Engine (ChromaDB Vector Store)**: Evaluates refund claims against enterprise return policies via dense semantic vector search (`all-MiniLM-L6-v2` embeddings).
 
 ---
 
@@ -46,8 +46,8 @@ flowchart TD
     end
 
     subgraph Resources ["Storage & APIs"]
-        RAG[("RAG Policy Store")]
-        DB[("Customer DB & Orders")]
+        RAG[("ChromaDB Vector Store<br/>(Semantic Policy RAG)")]
+        DB[("Customer DB & Orders (SQLite)")]
         BankAPI["Mock Bank Transfer"]
         AuditLog[("Tamper-Evident Audit Trail")]
         MockEmail["Mock Email Inbox"]

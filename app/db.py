@@ -123,6 +123,11 @@ def init_db(seed: bool = True, drop_existing: bool = False, path: Optional[Path]
         if drop_existing:
             for table in TABLES:
                 conn.execute(f"DROP TABLE IF EXISTS {table}")
+            try:
+                from app.retriever import get_store_for_conn
+                get_store_for_conn(conn).reset()
+            except Exception:
+                pass
         conn.executescript(SCHEMA)
         if seed:
             _seed(conn)
@@ -180,3 +185,8 @@ def _seed(conn: sqlite3.Connection) -> None:
              "escalation limit $100 $500 supervisor autonomous cap", ts),
         ],
     )
+    try:
+        from app.retriever import Retriever
+        Retriever().sync_from_db(conn)
+    except Exception:
+        pass

@@ -10,6 +10,9 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT_DIR / "data"
 DB_PATH = Path(os.getenv("CHANGSUPPORT_DB", str(DATA_DIR / "changsupport.db")))
+CHROMA_PERSIST_DIR = Path(os.getenv("CHANGSUPPORT_CHROMA_DIR", str(DATA_DIR / "chroma")))
+CHROMA_COLLECTION_NAME = "refund_policies"
+VECTOR_SEARCH_TOP_K = 2
 
 # Guardrail limits (from the project proposal)
 MAX_AUTONOMOUS_REFUND_PER_TX = 100.00

@@ -226,6 +226,17 @@ def list_policies(_who=Depends(require("admin", "supervisor")), conn=Depends(db)
     return retriever.list_policies(conn)
 
 
+@app.get("/policies/vector-stats")
+def vector_stats(_who=Depends(require("admin", "supervisor")), conn=Depends(db)):
+    from app.retriever import get_store_for_conn
+    store = get_store_for_conn(conn)
+    return {
+        "engine": "ChromaDB",
+        "collection": store.collection_name,
+        "indexed_vectors": store.count(),
+    }
+
+
 @app.post("/policies")
 def upload_policy(req: PolicyRequest, who: Identity = Depends(require("admin")), conn=Depends(db)):
     result = retriever.add_policy(conn, req.id, req.title, req.content, req.tags, who.user_id)
