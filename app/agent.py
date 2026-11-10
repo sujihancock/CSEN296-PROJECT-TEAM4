@@ -12,7 +12,7 @@ from app import config, guardrails, tools
 from app.audit import log_event
 from app.db import parse_ts
 from app.guardrails import GuardrailViolation
-from app.llm import MockLLM
+from app.llm import BaseLLM, MockLLM, get_llm
 
 
 class Specialist:
@@ -70,9 +70,9 @@ class EmailAgent(Specialist):
 class RefundsAgent(Specialist):
     name = "RefundsAgent"
 
-    def __init__(self, conn, session_customer_id, llm: MockLLM):
+    def __init__(self, conn, session_customer_id, llm: Optional[BaseLLM] = None):
         super().__init__(conn, session_customer_id)
-        self.llm = llm
+        self.llm = llm or get_llm()
 
     def evaluate(self, case: Dict[str, Any], order: Dict[str, Any], reason: str) -> Dict[str, Any]:
         case_id = case["case_id"]
@@ -127,8 +127,8 @@ class Orchestrator:
         "reporting:record_decision",
     ]
 
-    def __init__(self, llm: Optional[MockLLM] = None):
-        self.llm = llm or MockLLM()
+    def __init__(self, llm: Optional[BaseLLM] = None):
+        self.llm = llm or get_llm()
 
     def plan(self, task: str, data: Dict[str, Any]) -> List[str]:
         if task == "refund_request":

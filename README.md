@@ -85,7 +85,19 @@ flowchart TD
    PYTHONPATH=. ./.venv/bin/python3 -m uvicorn app.main:app --port 8000 --reload
    ```
 
-2. **Access the Web Dashboard**:
+2. **Running with Local Qwen Model via Ollama**:
+   - ChangSupport.AI can run with a local Qwen model (default: `qwen3.5:2b`) hosted via Ollama.
+   - Run the setup helper to pull the model:
+     ```bash
+     ./scripts/setup_ollama.sh qwen3.5:2b
+     ```
+   - Start the service with Ollama enabled:
+     ```bash
+     CHANGSUPPORT_LLM_PROVIDER=ollama OLLAMA_MODEL=qwen3.5:2b ./start.sh
+     ```
+   - Check LLM status anytime at [http://localhost:8000/llm/status](http://localhost:8000/llm/status).
+
+3. **Access the Web Dashboard**:
    - Open [http://localhost:8000/](http://localhost:8000/) in your browser.
    - Use the **🧪 Interactive Sandbox** to test 1-click presets (Standard Refund, High-Value Escalation, Policy Denial, Prompt Injection) and watch the multi-agent execution pipeline.
    - Access Swagger API documentation at [http://localhost:8000/docs](http://localhost:8000/docs).

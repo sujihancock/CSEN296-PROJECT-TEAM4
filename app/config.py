@@ -24,6 +24,13 @@ RETURN_WINDOW_DAYS = 30
 
 CORE_AGENT_ID = "ChangSupport-Core"
 
+# LLM Engine Configuration
+LLM_PROVIDER = os.getenv("CHANGSUPPORT_LLM_PROVIDER", "mock").lower()  # "mock" or "ollama"
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen3.5:2b")
+OLLAMA_TIMEOUT = float(os.getenv("OLLAMA_TIMEOUT", "30.0"))
+OLLAMA_FALLBACK_TO_MOCK = os.getenv("OLLAMA_FALLBACK_TO_MOCK", "true").lower() in ("true", "1", "yes")
+
 # Mock authentication: demo API keys -> (role, user id).
 # The API derives identity from the key, never from the request body.
 API_KEYS = {

@@ -216,6 +216,22 @@ def list_tools(_who=Depends(require("supervisor", "admin"))):
     return tools.list_tools()
 
 
+@app.get("/llm/status")
+def llm_status():
+    from app.llm import OllamaLLM, get_llm
+    active_llm = get_llm()
+    is_ollama = isinstance(active_llm, OllamaLLM)
+    return {
+        "configured_provider": config.LLM_PROVIDER,
+        "active_class": active_llm.__class__.__name__,
+        "ollama_base_url": config.OLLAMA_BASE_URL,
+        "ollama_model": config.OLLAMA_MODEL,
+        "ollama_reachable": active_llm.is_available() if is_ollama else False,
+        "ollama_models": active_llm.list_models() if is_ollama else [],
+        "fallback_to_mock_enabled": config.OLLAMA_FALLBACK_TO_MOCK,
+    }
+
+
 # --------------------------------------------------------------------------
 # Admin
 # --------------------------------------------------------------------------
