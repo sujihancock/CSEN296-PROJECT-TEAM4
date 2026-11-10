@@ -40,3 +40,8 @@ htmlcov/
 .idea/
 .vscode/
 
+
+# ChangSupport.AI runtime data
+data/
+logs/
+redteam/results/
