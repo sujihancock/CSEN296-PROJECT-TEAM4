@@ -79,6 +79,16 @@ def test_ui_is_served():
         r = client.get("/")
         assert r.status_code == 200
         assert "ChangSupport.AI" in r.text
+        assert "Interactive Sandbox" in r.text
+
+
+def test_demo_customers_endpoint():
+    with TestClient(app) as client:
+        r = client.get("/demo/customers", headers={"X-API-Key": "customer-001-key"})
+        assert r.status_code == 200
+        customers = r.json()
+        assert len(customers) >= 3
+        assert any(c["id"] == "CUST-001" for c in customers)
 
 
 def test_api_role_checks():

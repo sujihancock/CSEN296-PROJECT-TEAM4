@@ -76,12 +76,26 @@ flowchart TD
 
 ## Quick Start Guide
 
+1. **Start the Service & Interactive Dashboard**:
+   ```bash
+   ./start.sh
+   ```
+   Or directly via uvicorn:
+   ```bash
+   PYTHONPATH=. ./.venv/bin/python3 -m uvicorn app.main:app --port 8000 --reload
+   ```
+
+2. **Access the Web Dashboard**:
+   - Open [http://localhost:8000/](http://localhost:8000/) in your browser.
+   - Use the **🧪 Interactive Sandbox** to test 1-click presets (Standard Refund, High-Value Escalation, Policy Denial, Prompt Injection) and watch the multi-agent execution pipeline.
+   - Access Swagger API documentation at [http://localhost:8000/docs](http://localhost:8000/docs).
+
 ## Testing & Red Teaming
 
 Run the full automated test suite (including unit tests, workflow integration, and red team adversarial simulations):
 
 ```bash
-PYTHONPATH=. ./.venv/bin/pytest tests/ -v
+PYTHONPATH=. ./.venv/bin/pytest redteam/tests/ -v
 ```
 
 ### In-Scope Security & Threat Scenarios Covered:

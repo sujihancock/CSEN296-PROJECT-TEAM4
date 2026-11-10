@@ -138,6 +138,12 @@ def run_red_team_test(rt: str, _who=Depends(require("supervisor", "admin")), con
     return {"status": "ok", **redteam.run_test(rt, live_conn=conn)}
 
 
+@app.get("/demo/customers")
+def demo_customers(_who: Identity = Depends(identity), conn=Depends(db)):
+    """Return customer profiles for the demo dashboard."""
+    return _rows(conn, "SELECT id, name, email, bank_account, bank_balance FROM customers ORDER BY id")
+
+
 # --------------------------------------------------------------------------
 # Customer
 # --------------------------------------------------------------------------

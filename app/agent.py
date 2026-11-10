@@ -81,7 +81,12 @@ class RefundsAgent(Specialist):
         days = (datetime.now(timezone.utc) - parse_ts(order["purchase_date"])).days
         proposal = self.llm.propose_refund_decision(
             reason, order, case["amount_requested"], policies, days, config.RETURN_WINDOW_DAYS)
-        result = {"llm_proposal": proposal, "refunded_amount": 0.0, "new_bank_balance": None}
+        result = {
+            "llm_proposal": proposal,
+            "refunded_amount": 0.0,
+            "new_bank_balance": None,
+            "retrieved_policies": policies,
+        }
 
         if proposal["action"] != "APPROVE":
             self.call("cases.update_status", case_id=case_id, status="DENIED", decision_reason=proposal["rationale"])
@@ -179,7 +184,13 @@ class Orchestrator:
             reporting.record(case_id, outcome["status"], outcome["reason"])
             step("ReportingAgent", "Recorded decision in the audit trail.")
 
-            return {"case_id": case_id, "trace": trace, **outcome}
+            return {
+                "case_id": case_id,
+                "trace": trace,
+                "customer": customer,
+                "order": order,
+                **outcome,
+            }
 
         except GuardrailViolation as v:
             d = v.decision

@@ -1,10 +1,7 @@
 #!/bin/bash
 # ChangSupport.AI - Startup & Management Script
 # Usage:
-#   ./start.sh              (starts both backend and frontend)
-#   ./start.sh backend      (starts backend server only on http://localhost:8000)
-#   ./start.sh frontend     (starts frontend server only on http://localhost:3000)
-#   ./start.sh all          (starts both backend and frontend)
+#   ./start.sh              (starts server & serves frontend dashboard on http://localhost:8000)
 #   ./start.sh test         (runs pytest test suite)
 
 set -e
@@ -16,90 +13,40 @@ cd "$DIR"
 if [ ! -d ".venv" ]; then
     echo "Creating virtual environment in .venv..."
     python3 -m venv .venv
-    echo "Installing backend dependencies..."
-    ./.venv/bin/pip install -r backend/requirements.txt
+    echo "Installing dependencies..."
+    ./.venv/bin/pip install -r requirements.txt
 fi
 
 VENV_PYTHON="./.venv/bin/python3"
 
-start_backend() {
+start_server() {
     echo "=========================================================="
-    echo "🚀 Starting ChangSupport.AI Backend on http://localhost:8000"
-    echo "   API Docs available at: http://localhost:8000/docs"
+    echo "🚀 Starting ChangSupport.AI on http://localhost:8000"
+    echo "   👉 Interactive Dashboard: http://localhost:8000/"
+    echo "   👉 Swagger API Docs:      http://localhost:8000/docs"
     echo "=========================================================="
-    PYTHONPATH=. $VENV_PYTHON -m uvicorn backend.app:app --host 0.0.0.0 --port 8000 --reload
-}
-
-start_frontend() {
-    echo "=========================================================="
-    echo "🌐 Starting ChangSupport.AI Frontend on http://localhost:3000"
-    echo "=========================================================="
-    python3 -m http.server 3000 --directory frontend
+    PYTHONPATH=. $VENV_PYTHON -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 }
 
 run_tests() {
     echo "=========================================================="
     echo "🧪 Running ChangSupport.AI Test Suite (Guardrails & Red Team)"
     echo "=========================================================="
-    PYTHONPATH=. $VENV_PYTHON -m pytest tests/ -v
-}
-
-start_both() {
-    echo "=========================================================="
-    echo "🌟 Launching ChangSupport.AI Full Stack (Backend + Frontend)"
-    echo "=========================================================="
-
-    # Start Backend in background
-    PYTHONPATH=. $VENV_PYTHON -m uvicorn backend.app:app --host 0.0.0.0 --port 8000 &
-    BACKEND_PID=$!
-    echo "Backend started with PID: $BACKEND_PID (http://localhost:8000)"
-
-    # Start Frontend in background
-    python3 -m http.server 3000 --directory frontend &
-    FRONTEND_PID=$!
-    echo "Frontend started with PID: $FRONTEND_PID (http://localhost:3000)"
-
-    # Graceful shutdown handler
-    cleanup() {
-        echo ""
-        echo "Shutting down ChangSupport.AI services..."
-        kill $BACKEND_PID 2>/dev/null || true
-        kill $FRONTEND_PID 2>/dev/null || true
-        echo "Services stopped cleanly."
-        exit 0
-    }
-
-    trap cleanup SIGINT SIGTERM
-
-    echo ""
-    echo " ChangSupport.AI is running!"
-    echo " 👉 Frontend Dashboard: http://localhost:3000"
-    echo " 👉 Backend API Docs:   http://localhost:8000/docs"
-    echo " Press Ctrl+C to stop both servers."
-    echo ""
-
-    wait $BACKEND_PID $FRONTEND_PID
+    PYTHONPATH=. $VENV_PYTHON -m pytest redteam/tests/ -v
 }
 
 MODE="${1:-all}"
 
 case "$MODE" in
-    backend)
-        start_backend
-        ;;
-    frontend)
-        start_frontend
-        ;;
-    both|all)
-        start_both
+    backend|frontend|both|all|server)
+        start_server
         ;;
     test)
         run_tests
         ;;
     *)
         echo "Unknown mode: $MODE"
-        echo "Usage: ./start.sh [backend | frontend | all | test]"
+        echo "Usage: ./start.sh [server | test]"
         exit 1
         ;;
 esac
-
