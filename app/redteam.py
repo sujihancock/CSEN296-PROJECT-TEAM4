@@ -181,5 +181,9 @@ def run_test(rt: str, live_conn: sqlite3.Connection = None) -> Dict[str, Any]:
 
     if live_conn is not None:
         audit.log_event(live_conn, "redteam", f"{spec['id']}_RUN", "INFO", summary)
-    return {"rt": spec["id"], "title": spec["title"], "summary": summary,
+    attacks = [
+        {k: r[k] for k in ("id", "title", "category", "outcome", "final_status", "final_code", "money_paid_out")}
+        for r in results
+    ]
+    return {"rt": spec["id"], "title": spec["title"], "summary": summary, "attacks": attacks,
             "evidence_path": str(out_path.relative_to(config.ROOT_DIR))}

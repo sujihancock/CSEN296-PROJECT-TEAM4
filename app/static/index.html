@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChangSupport.AI</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --surface: #ffffff; --surface-2: #f0f2f5; --border: #dde1e7;
+    --text: #1c2129; --muted: #5d6673; --accent: #2f5bd3; --accent-text: #ffffff;
+    --ok-bg: #e3f4e8; --ok: #1d6b38; --warn-bg: #fdf0d5; --warn: #8a5a00;
+    --bad-bg: #fbe3e1; --bad: #a3271c; --info-bg: #e5ecfb; --info: #2a4a9b;
+    --radius: 10px; --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151a; --surface: #1b1f26; --surface-2: #232832; --border: #2f3541;
+      --text: #e6e9ee; --muted: #9aa3b0; --accent: #6d93f2; --accent-text: #0d1118;
+      --ok-bg: #173523; --ok: #7fd69c; --warn-bg: #3a2d0f; --warn: #f0c062;
+      --bad-bg: #3d1a17; --bad: #f2948a; --info-bg: #1b2847; --info: #a6bff5;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { position: sticky; top: 0; z-index: 2; background: var(--surface);
+           border-bottom: 1px solid var(--border); }
+  .bar { max-width: 1100px; margin: 0 auto; padding: 12px 16px; display: flex;
+         gap: 12px; align-items: center; flex-wrap: wrap; }
+  .brand { font-weight: 700; font-size: 17px; margin-right: auto; }
+  .brand small { font-weight: 400; color: var(--muted); margin-left: 6px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; display: grid; gap: 16px; }
+  .grid-2 { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+  section.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+                 padding: 16px; min-width: 0; }
+  h2 { font-size: 15px; margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
+  h2 .spacer { margin-left: auto; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+  input, select, textarea { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border);
+                            background: var(--surface-2); color: var(--text); font: inherit; }
+  textarea { min-height: 70px; resize: vertical; }
+  button { font: inherit; padding: 7px 14px; border-radius: 8px; border: 1px solid var(--border);
+           background: var(--surface-2); color: var(--text); cursor: pointer; }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  button.danger { background: var(--bad-bg); color: var(--bad); border-color: transparent; }
+  button.small { padding: 4px 10px; font-size: 13px; }
+  button:disabled { opacity: .55; cursor: wait; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .mono { font-family: var(--mono); font-size: 12.5px; }
+  .muted { color: var(--muted); }
+  .empty { color: var(--muted); font-size: 14px; padding: 8px 0; }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600;
+           white-space: nowrap; background: var(--surface-2); color: var(--muted); }
+  .b-ok { background: var(--ok-bg); color: var(--ok); }
+  .b-warn { background: var(--warn-bg); color: var(--warn); }
+  .b-bad { background: var(--bad-bg); color: var(--bad); }
+  .b-info { background: var(--info-bg); color: var(--info); }
+  .result { margin-top: 14px; padding: 12px; border-radius: 8px; background: var(--surface-2); }
+  .trace { list-style: none; padding: 0; margin: 10px 0 0; font-size: 13px; }
+  .trace li { padding: 4px 0 4px 12px; border-left: 2px solid var(--border); }
+  .trace b { color: var(--accent); font-weight: 600; }
+  .meter { height: 8px; border-radius: 999px; background: var(--surface-2); overflow: hidden; margin: 6px 0; }
+  .meter > div { height: 100%; background: var(--accent); }
+  .stat { display: flex; justify-content: space-between; font-size: 14px; margin-top: 8px; }
+  .case { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+  .case p { margin: 4px 0; font-size: 14px; }
+  .email { border-bottom: 1px solid var(--border); padding: 8px 0; }
+  .email:last-child { border-bottom: 0; }
+  .email .subj { font-weight: 600; font-size: 14px; }
+  .email .body { font-size: 13.5px; color: var(--muted); }
+  #toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); max-width: calc(100% - 32px);
+           background: var(--text); color: var(--bg); padding: 8px 16px; border-radius: 8px; font-size: 14px;
+           opacity: 0; transition: opacity .2s; pointer-events: none; }
+  #toast.show { opacity: 1; }
+  .rt-grid { display: flex; gap: 6px; flex-wrap: wrap; }
+  .scroll { max-height: 420px; overflow: auto; }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div class="brand">ChangSupport.AI <small>autonomous refund support</small></div>
+    <span id="killPill" class="badge">…</span>
+    <select id="role" aria-label="Signed in as" style="width:auto">
+      <option value="customer-001-key">Customer · Alex Smith (CUST-001)</option>
+      <option value="customer-002-key">Customer · Elena Rostova (CUST-002)</option>
+      <option value="customer-003-key">Customer · Marcus Vance (CUST-003)</option>
+      <option value="supervisor-key">Supervisor (SUP-001)</option>
+      <option value="admin-key">Admin (ADMIN-001)</option>
+    </select>
+  </div>
+</header>
+
+<main>
+  <!-- Customer -->
+  <div id="view-customer" hidden>
+    <div class="grid-2">
+      <section class="card">
+        <h2>Request a refund</h2>
+        <form id="refundForm">
+          <label for="orderSel">Order</label>
+          <select id="orderSel" required></select>
+          <label for="amount">Amount (USD)</label>
+          <input id="amount" type="number" step="0.01" required>
+          <label for="reason">Reason</label>
+          <textarea id="reason" required placeholder="Describe what went wrong"></textarea>
+          <div class="row"><button class="primary" type="submit">Submit request</button></div>
+        </form>
+        <div id="refundResult"></div>
+      </section>
+      <section class="card">
+        <h2>Inbox</h2>
+        <div id="inbox" class="scroll"></div>
+      </section>
+    </div>
+    <section class="card" style="margin-top:16px">
+      <h2>My cases</h2>
+      <div class="table-wrap" id="myCases"></div>
+    </section>
+    <section class="card" style="margin-top:16px">
+      <h2>My orders</h2>
+      <div class="table-wrap" id="myOrders"></div>
+    </section>
+  </div>
+
+  <!-- Supervisor -->
+  <div id="view-supervisor" hidden>
+    <div class="grid-2">
+      <section class="card">
+        <h2>Guardrails</h2>
+        <div id="guardStatus"></div>
+        <label for="ksReason">Reason</label>
+        <input id="ksReason" placeholder="e.g. logs show misaligned behaviour">
+        <div class="row"><button id="ksBtn" class="danger">Activate kill switch</button></div>
+      </section>
+      <section class="card">
+        <h2>Escalated cases <span class="spacer"></span><button class="small" data-refresh="supervisor">Refresh</button></h2>
+        <div id="escalated" class="scroll"></div>
+      </section>
+    </div>
+    <section class="card" style="margin-top:16px">
+      <h2>Red-team tests <span class="muted" style="font-weight:400;font-size:13px">run in a sandbox; live data is untouched</span></h2>
+      <div class="rt-grid" id="rtButtons"></div>
+      <div id="rtResults"></div>
+    </section>
+  </div>
+
+  <!-- Admin -->
+  <div id="view-admin" hidden>
+    <div class="grid-2">
+      <section class="card">
+        <h2>Upload refund policy</h2>
+        <form id="policyForm">
+          <label for="pId">Policy ID</label><input id="pId" required placeholder="POL-005">
+          <label for="pTitle">Title</label><input id="pTitle" required>
+          <label for="pContent">Content</label><textarea id="pContent" required></textarea>
+          <label for="pTags">Tags</label><input id="pTags" placeholder="space-separated keywords">
+          <div class="row"><button class="primary" type="submit">Upload &amp; index</button></div>
+        </form>
+      </section>
+      <section class="card">
+        <h2>Demo data</h2>
+        <p class="muted" style="margin:0 0 8px;font-size:14px">Restore customers, orders, policies and balances to the seed state. Clears cases, emails and the audit log.</p>
+        <button id="resetBtn" class="danger">Reset demo data</button>
+      </section>
+    </div>
+    <section class="card" style="margin-top:16px">
+      <h2>Policies</h2>
+      <div class="table-wrap" id="policies"></div>
+    </section>
+  </div>
+
+  <!-- Shared: audit log (supervisor + admin) -->
+  <section class="card" id="auditCard" hidden>
+    <h2>Audit log <span id="chainPill"></span><span class="spacer"></span>
+      <button class="small" id="verifyBtn">Verify chain</button>
+      <button class="small" id="auditRefresh">Refresh</button></h2>
+    <div class="table-wrap scroll" id="audit"></div>
+  </section>
+</main>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const money = (n) => (n == null || isNaN(n)) ? "—" : `$${Number(n).toFixed(2)}`;
+
+// Build DOM nodes without innerHTML so user-supplied text can never become markup.
+function el(tag, attrs, ...children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k === "class") node.className = v;
+    else if (k.startsWith("on")) node.addEventListener(k.slice(2), v);
+    else node.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of children.flat()) {
+    if (c == null || c === false) continue;
+    node.append(c instanceof Node ? c : document.createTextNode(String(c)));
+  }
+  return node;
+}
+function fill(id, ...nodes) { $(id).replaceChildren(...nodes.flat()); }
+
+const STATUS_CLASS = {
+  APPROVED: "b-ok", ALLOWED: "b-ok", DEFENDED: "b-ok", POLICY_PASSED: "b-ok",
+  ESCALATED: "b-warn", UNDER_REVIEW: "b-info", RECEIVED: "b-info", INFO: "b-info", OVERRIDDEN: "b-info",
+  DENIED: "b-bad", BLOCKED: "b-bad", REVOKED: "b-bad", ATTACK_SUCCEEDED: "b-bad",
+};
+const badge = (s) => el("span", { class: `badge ${STATUS_CLASS[s] || ""}` }, s ?? "—");
+
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => t.classList.remove("show"), 2600);
+}
+
+function table(columns, rows, emptyText) {
+  if (!rows.length) return el("div", { class: "empty" }, emptyText || "Nothing here yet.");
+  return el("table", {},
+    el("thead", {}, el("tr", {}, columns.map(c => el("th", { class: c.num ? "num" : null }, c.label)))),
+    el("tbody", {}, rows.map(r => el("tr", {}, columns.map(c => {
+      const v = c.render ? c.render(r) : r[c.key];
+      return el("td", { class: [c.num ? "num" : "", c.mono ? "mono" : ""].join(" ").trim() || null }, v);
+    })))));
+}
+
+// ---------------------------------------------------------------- API
+let apiKey = "customer-001-key";
+try { apiKey = localStorage.getItem("cs-role") || apiKey; } catch (e) {}
+
+async function api(method, path, body) {
+  const res = await fetch(path, {
+    method, headers: { "X-API-Key": apiKey, ...(body ? { "Content-Type": "application/json" } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const d = data && data.detail;
+    throw new Error(typeof d === "string" ? d : (d && d.reason) || `Request failed (${res.status})`);
+  }
+  return data;
+}
+
+async function busy(button, fn) {
+  button.disabled = true;
+  try { await fn(); } catch (e) { toast(e.message); } finally { button.disabled = false; }
+}
+
+const role = () => apiKey.startsWith("customer") ? "customer" : apiKey.split("-")[0];
+
+// ---------------------------------------------------------------- header
+async function loadHealth() {
+  const h = await fetch("/health").then(r => r.json()).catch(() => null);
+  const pill = $("killPill");
+  if (!h) { pill.className = "badge b-bad"; pill.textContent = "API offline"; return null; }
+  pill.className = `badge ${h.kill_switch_active ? "b-bad" : "b-ok"}`;
+  pill.textContent = h.kill_switch_active ? "Agent revoked (kill switch on)" : "Agent active";
+  return h;
+}
+
+// ---------------------------------------------------------------- customer
+let orders = [];
+async function loadCustomer() {
+  const [o, cases, emails] = await Promise.all([api("GET", "/me/orders"), api("GET", "/me/cases"), api("GET", "/me/emails")]);
+  orders = o;
+  const sel = $("orderSel"), prev = sel.value;
+  sel.replaceChildren(...orders.map(x => el("option", { value: x.id }, `${x.id} · ${x.product_name} · ${money(x.amount)}`)));
+  if (orders.some(x => x.id === prev)) sel.value = prev; else syncAmount();
+
+  fill("myOrders", table([
+    { label: "Order", key: "id", mono: true }, { label: "Product", key: "product_name" },
+    { label: "Type", key: "category" }, { label: "Purchased", render: r => r.purchase_date.slice(0, 10) },
+    { label: "Amount", render: r => money(r.amount), num: true },
+  ], orders));
+  fill("myCases", table([
+    { label: "Case", key: "id", mono: true }, { label: "Order", key: "order_id", mono: true },
+    { label: "Amount", render: r => money(r.amount_requested), num: true },
+    { label: "Status", render: r => badge(r.status) }, { label: "Decision", render: r => r.decision_reason || "—" },
+  ], cases, "No refund requests yet."));
+  fill("inbox", emails.length ? emails.map(e => el("div", { class: "email" },
+    el("div", { class: "subj" }, e.subject), el("div", { class: "body" }, e.body),
+    el("div", { class: "muted mono" }, `${e.email_type} · ${e.sent_at}`))) : el("div", { class: "empty" }, "No emails yet."));
+}
+function syncAmount() {
+  const o = orders.find(x => x.id === $("orderSel").value);
+  if (o) $("amount").value = o.amount.toFixed(2);
+}
+$("orderSel").addEventListener("change", syncAmount);
+
+$("refundForm").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  busy(ev.submitter, async () => {
+    const out = await api("POST", "/tasks", { task: "refund_request", data: {
+      order_id: $("orderSel").value, amount: parseFloat($("amount").value), reason: $("reason").value } });
+    const r = out.result;
+    fill("refundResult", el("div", { class: "result" },
+      el("div", {}, badge(r.status), " ", r.case_id ? el("span", { class: "mono" }, r.case_id) : null),
+      el("p", { style: "margin:8px 0 0;font-size:14px" }, r.reason || ""),
+      r.refunded_amount ? el("p", { style: "margin:4px 0 0;font-size:14px" }, `Refunded ${money(r.refunded_amount)}`) : null,
+      el("ul", { class: "trace" }, (r.trace || []).map(t => el("li", {}, el("b", {}, t.agent), " ", t.message)))));
+    $("reason").value = "";
+    await Promise.all([loadCustomer(), loadHealth()]);
+  });
+});
+
+// ---------------------------------------------------------------- supervisor
+async function loadSupervisor() {
+  const [g, cases] = await Promise.all([api("GET", "/guardrails/status"), api("GET", "/supervisor/cases?status=ESCALATED")]);
+  const pct = Math.min(100, 100 * g.weekly_autonomous_total / g.max_weekly_autonomous_refunds);
+  fill("guardStatus",
+    el("div", { class: "stat" }, el("span", {}, "Kill switch"), badge(g.kill_switch_active ? "REVOKED" : "ALLOWED")),
+    el("div", { class: "stat" }, el("span", {}, "Per-refund autonomous limit"), el("b", {}, money(g.max_autonomous_refund_per_tx))),
+    el("div", { class: "stat" }, el("span", {}, "Autonomous refunds, last 7 days"),
+      el("b", {}, `${money(g.weekly_autonomous_total)} / ${money(g.max_weekly_autonomous_refunds)}`)),
+    el("div", { class: "meter", role: "img", "aria-label": `${pct.toFixed(0)}% of weekly cap used` },
+      el("div", { style: `width:${pct}%` })));
+  const btn = $("ksBtn");
+  btn.dataset.active = g.kill_switch_active ? "1" : "";
+  btn.textContent = g.kill_switch_active ? "Restore agent authority" : "Activate kill switch";
+  btn.className = g.kill_switch_active ? "primary" : "danger";
+
+  fill("escalated", cases.length ? cases.map(c => {
+    const comment = el("input", { placeholder: "Comment for the record", "aria-label": `Comment for ${c.id}` });
+    const decide = (approve) => (ev) => busy(ev.currentTarget, async () => {
+      await api("POST", `/supervisor/cases/${encodeURIComponent(c.id)}/decision`, { approve, comment: comment.value });
+      toast(`${c.id} ${approve ? "approved" : "denied"}`);
+      await Promise.all([loadSupervisor(), loadAudit()]);
+    });
+    return el("div", { class: "case" },
+      el("p", {}, el("b", { class: "mono" }, c.id), " · ", c.customer_id, " · ", el("span", { class: "mono" }, c.order_id),
+        " · ", el("b", {}, money(c.amount_requested))),
+      el("p", {}, el("span", { class: "muted" }, "Customer says: "), c.reason),
+      el("p", {}, el("span", { class: "muted" }, "Guardrail: "), c.decision_reason || "—"),
+      comment,
+      el("div", { class: "row" }, el("button", { class: "primary small", onclick: decide(true) }, "Approve"),
+        el("button", { class: "danger small", onclick: decide(false) }, "Deny")));
+  }) : el("div", { class: "empty" }, "No cases waiting for review."));
+}
+
+$("ksBtn").addEventListener("click", (ev) => busy(ev.currentTarget, async () => {
+  const active = !ev.currentTarget.dataset.active;
+  await api("POST", "/supervisor/kill-switch", { active, reason: $("ksReason").value });
+  $("ksReason").value = "";
+  toast(active ? "Kill switch activated: agent authority revoked" : "Agent authority restored");
+  await Promise.all([loadSupervisor(), loadHealth(), loadAudit()]);
+}));
+
+let rtRendered = false;
+async function loadRedTeamButtons() {
+  if (rtRendered) return;
+  const tests = await api("GET", "/tests");
+  const runAll = el("button", { class: "primary small" }, "Run all");
+  runAll.addEventListener("click", () => busy(runAll, async () => {
+    fill("rtResults");
+    for (const t of tests) await runRt(t);
+  }));
+  fill("rtButtons", runAll, tests.map(t => {
+    const b = el("button", { class: "small" }, t.toUpperCase());
+    b.addEventListener("click", () => busy(b, () => runRt(t, true)));
+    return b;
+  }));
+  rtRendered = true;
+}
+async function runRt(t, replace) {
+  const r = await api("POST", `/tests/${t}`);
+  const s = r.summary;
+  const block = el("div", { style: "margin-top:16px" },
+    el("h2", {}, `${r.rt} · ${r.title}`, el("span", { class: "spacer" }),
+      s.guardrail_failures.length
+        ? el("span", { class: "badge b-bad" }, `${s.guardrail_failures.length} guardrail failure(s)`)
+        : s.findings.length
+          ? el("span", { class: "badge b-warn" }, `${s.findings.length} finding(s)`)
+          : el("span", { class: "badge b-ok" }, "all defended"),
+      el("span", { class: "muted", style: "font-weight:400;font-size:13px" }, `${s.defended}/${s.attacks} defended`)),
+    el("div", { class: "table-wrap" }, table([
+      { label: "Attack", key: "id", mono: true }, { label: "Scenario", key: "title" },
+      { label: "Layer", render: a => a.category === "guardrail" ? "Guardrail" : "LLM policy" },
+      { label: "Outcome", render: a => badge(a.outcome) },
+      { label: "Result", render: a => [badge(a.final_status), a.final_code ? el("div", { class: "mono muted" }, a.final_code) : null] },
+      { label: "Paid out", render: a => money(a.money_paid_out), num: true },
+    ], r.attacks)),
+    el("div", { class: "muted mono", style: "margin-top:6px" }, `Evidence: ${r.evidence_path}`));
+  if (replace) fill("rtResults", block); else $("rtResults").append(block);
+  await loadAudit();
+}
+
+// ---------------------------------------------------------------- admin
+async function loadAdmin() {
+  const p = await api("GET", "/policies");
+  fill("policies", table([
+    { label: "ID", key: "id", mono: true }, { label: "Title", key: "title" }, { label: "Content", key: "content" },
+    { label: "Uploaded by", key: "uploaded_by" },
+  ], p));
+}
+$("policyForm").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  busy(ev.submitter, async () => {
+    await api("POST", "/policies", { id: $("pId").value.trim(), title: $("pTitle").value, content: $("pContent").value, tags: $("pTags").value });
+    ev.target.reset(); toast("Policy indexed");
+    await Promise.all([loadAdmin(), loadAudit()]);
+  });
+});
+$("resetBtn").addEventListener("click", (ev) => {
+  if (!confirm("Reset all demo data? Cases, emails and the audit log will be cleared.")) return;
+  busy(ev.currentTarget, async () => {
+    await api("POST", "/admin/reset"); toast("Demo data reset");
+    await Promise.all([loadAdmin(), loadAudit(), loadHealth()]);
+  });
+});
+
+// ---------------------------------------------------------------- audit
+async function loadAudit() {
+  if (role() === "customer") return;
+  const logs = await api("GET", "/logs");
+  logs.reverse();
+  fill("audit", table([
+    { label: "#", key: "id", num: true }, { label: "Time (UTC)", key: "ts", mono: true },
+    { label: "Actor", key: "actor" }, { label: "Action", key: "action", mono: true },
+    { label: "Status", render: r => badge(r.status) }, { label: "Case", render: r => r.case_id || "—", mono: true },
+    { label: "Detail", render: r => r.details.code && r.details.code !== "OK" ? r.details.code : (r.details.reason || "") },
+  ], logs, "No audit entries yet."));
+  fill("chainPill");
+}
+$("verifyBtn").addEventListener("click", (ev) => busy(ev.currentTarget, async () => {
+  const v = await api("GET", "/logs/verify");
+  fill("chainPill", v.valid ? badge("ALLOWED") : badge("BLOCKED"),
+    el("span", { class: "muted", style: "font-weight:400;font-size:13px" },
+      v.valid ? `${v.entries} entries, chain intact` : `tampering detected at entry #${v.first_bad_id}`));
+}));
+$("auditRefresh").addEventListener("click", (ev) => busy(ev.currentTarget, loadAudit));
+document.addEventListener("click", (ev) => {
+  if (ev.target.dataset.refresh === "supervisor") busy(ev.target, loadSupervisor);
+});
+
+// ---------------------------------------------------------------- routing
+async function render() {
+  const r = role();
+  for (const v of ["customer", "supervisor", "admin"]) $(`view-${v}`).hidden = v !== r;
+  $("auditCard").hidden = r === "customer";
+  fill("refundResult"); fill("chainPill");
+  try {
+    await loadHealth();
+    if (r === "customer") await loadCustomer();
+    if (r === "supervisor") await Promise.all([loadSupervisor(), loadRedTeamButtons()]);
+    if (r === "admin") await loadAdmin();
+    await loadAudit();
+  } catch (e) { toast(e.message); }
+}
+if (![...$("role").options].some(o => o.value === apiKey)) apiKey = "customer-001-key";
+$("role").value = apiKey;
+$("role").addEventListener("change", (ev) => {
+  apiKey = ev.target.value;
+  try { localStorage.setItem("cs-role", apiKey); } catch (e) {}
+  render();
+});
+render();
+</script>
+</body>
+</html>

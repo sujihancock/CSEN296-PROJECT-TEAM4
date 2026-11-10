@@ -9,7 +9,10 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any, Dict, Iterator, Optional
 
+from pathlib import Path
+
 from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from app import audit, config, guardrails, redteam, tools
@@ -70,6 +73,14 @@ def require(*roles: str):
 class TaskRequest(BaseModel):
     task: str
     data: Dict[str, Any] = Field(default_factory=dict)
+
+
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+
+
+@app.get("/", include_in_schema=False)
+def ui():
+    return FileResponse(STATIC_DIR / "index.html")
 
 
 @app.get("/health")

@@ -74,6 +74,13 @@ def test_api_end_to_end():
         assert client.get("/logs/verify", headers=sup).json()["valid"]
 
 
+def test_ui_is_served():
+    with TestClient(app) as client:
+        r = client.get("/")
+        assert r.status_code == 200
+        assert "ChangSupport.AI" in r.text
+
+
 def test_api_role_checks():
     with TestClient(app) as client:
         assert client.post("/tasks", json={"task": "refund_request", "data": {}}).status_code == 401
