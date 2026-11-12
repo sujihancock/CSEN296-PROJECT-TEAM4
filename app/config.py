@@ -37,6 +37,7 @@ API_KEYS = {
     "customer-001-key": ("customer", "CUST-001"),
     "customer-002-key": ("customer", "CUST-002"),
     "customer-003-key": ("customer", "CUST-003"),
+    "customer-004-key": ("customer", "CUST-004"),
     "supervisor-key": ("supervisor", "SUP-001"),
     "admin-key": ("admin", "ADMIN-001"),
 }

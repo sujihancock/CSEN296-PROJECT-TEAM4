@@ -32,11 +32,11 @@ function toast(msg) {
   t.innerHTML = msg;
   t.classList.add("show");
   clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => t.classList.remove("show"), 2800);
+  toast.timer = setTimeout(() => t.classList.remove("show"), 3200);
 }
 
 function table(columns, rows, emptyText) {
-  if (!rows || !rows.length) return el("div", { class: "empty", style: "padding:20px;text-align:center;color:var(--text-tertiary)" }, emptyText || "Nothing here yet.");
+  if (!rows || !rows.length) return el("div", { class: "empty" }, emptyText || "Nothing here yet.");
   return el("table", {},
     el("thead", {}, el("tr", {}, columns.map(c => el("th", { class: c.num ? "num" : null }, c.label)))),
     el("tbody", {}, rows.map(r => el("tr", {}, columns.map(c => {
@@ -69,12 +69,20 @@ const themeBtn = $("themeToggleBtn");
 if (themeBtn) themeBtn.addEventListener("click", toggleTheme);
 initTheme();
 
-// ---------------------------------------------------------------- API Client
+// ---------------------------------------------------------------- API Client & Global Role Switcher
 let apiKey = "customer-001-key";
 let currentTab = "sandbox";
 
+function portalKey(selectId, fallback) {
+  const sel = $(selectId);
+  return (sel && sel.value) || fallback;
+}
+const customerPortalKey = () => portalKey("customerAccount", "customer-001-key");
+const supervisorPortalKey = () => portalKey("supervisorAccount", "supervisor-key");
+const adminPortalKey = () => portalKey("adminAccount", "admin-key");
+
 async function api(method, path, body, keyOverride) {
-  const key = keyOverride || apiKey;
+  const key = keyOverride || customerPortalKey();
   const res = await fetch(path, {
     method,
     headers: { "X-API-Key": key, ...(body ? { "Content-Type": "application/json" } : {}) },
@@ -83,7 +91,8 @@ async function api(method, path, body, keyOverride) {
   const data = await res.json().catch(() => null);
   if (!res.ok) {
     const d = data && data.detail;
-    throw new Error(typeof d === "string" ? d : (d && d.reason) || `Request failed (${res.status})`);
+    const msg = typeof d === "string" ? d : (d && d.reason) || `Request failed (${res.status})`;
+    throw new Error(res.status === 403 ? `Rejected (403): ${msg}` : msg);
   }
   return data;
 }
@@ -95,11 +104,30 @@ async function busy(button, fn) {
 
 const role = () => apiKey.startsWith("customer") ? "customer" : apiKey.split("-")[0];
 
+// Global Persona Selector in Header
+const roleSel = $("role");
+if (roleSel) {
+  roleSel.value = apiKey;
+  roleSel.addEventListener("change", async () => {
+    apiKey = roleSel.value;
+    const sbCust = $("sbCustomer");
+    if (sbCust && apiKey.startsWith("customer")) {
+      sbCust.value = apiKey;
+    }
+    toast(`Active persona: <b>${roleSel.selectedOptions[0]?.text || apiKey}</b>`);
+    renderTab();
+  });
+}
+
 // ---------------------------------------------------------------- Navigation
 document.querySelectorAll(".nav-item, .nav-tab").forEach(tab => {
   tab.addEventListener("click", () => {
-    document.querySelectorAll(".nav-item, .nav-tab").forEach(t => t.classList.remove("active"));
+    document.querySelectorAll(".nav-item, .nav-tab").forEach(t => {
+      t.classList.remove("active");
+      t.setAttribute("aria-selected", "false");
+    });
     tab.classList.add("active");
+    tab.setAttribute("aria-selected", "true");
     currentTab = tab.dataset.tab;
     renderTab();
   });
@@ -145,7 +173,7 @@ async function loadHealth() {
     const vs = await api("GET", "/policies/vector-stats", null, "admin-key");
     const vPill = $("vectorPill");
     if (vs && vs.indexed_vectors != null && vPill) {
-      vPill.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 3v6m0 6v6M3 12h6m6 0h6"/></svg><span>ChromaDB: ${vs.indexed_vectors} vectors</span>`;
+      vPill.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v6m0 6v6M3 12h6m6 0h6"/></svg><span>ChromaDB: ${vs.indexed_vectors} vectors</span>`;
       if ($("indexedCount")) $("indexedCount").textContent = `${vs.indexed_vectors} vectors in '${vs.collection}'`;
     }
   } catch (e) {}
@@ -170,8 +198,13 @@ async function loadSandbox() {
     sandboxOrders = orders;
     const custId = custSel.selectedOptions[0]?.dataset.id;
     const currentCust = customers.find(c => c.id === custId);
-    if (currentCust && $("sbBankBalance")) {
-      $("sbBankBalance").textContent = money(currentCust.bank_balance);
+    if (currentCust) {
+      if ($("sbBankBalance")) $("sbBankBalance").textContent = money(currentCust.bank_balance);
+      if ($("sbAccountName")) $("sbAccountName").textContent = currentCust.name;
+      if ($("sbAvatar")) {
+        const initials = currentCust.name.split(" ").map(w => w[0]).join("");
+        $("sbAvatar").textContent = initials || currentCust.id;
+      }
     }
     if ($("sbLatestEmail")) {
       if (emails && emails.length) {
@@ -201,7 +234,13 @@ function syncSandboxAmount() {
   if (o) amountEl.value = o.amount.toFixed(2);
 }
 const sbCustEl = $("sbCustomer");
-if (sbCustEl) sbCustEl.addEventListener("change", loadSandbox);
+if (sbCustEl) {
+  sbCustEl.addEventListener("change", async () => {
+    apiKey = sbCustEl.value;
+    if (roleSel) roleSel.value = apiKey;
+    await loadSandbox();
+  });
+}
 const sbOrderEl = $("sbOrder");
 if (sbOrderEl) sbOrderEl.addEventListener("change", syncSandboxAmount);
 
@@ -243,7 +282,7 @@ const PRESETS = {
 const PRESET_DESCRIPTIONS = {
   standard: "Standard refund claim: Physical headphones broken in shipping within 30 days. Autonomous approval expected ($45.00).",
   high_value: "High-value cap test: $450.00 claim exceeds $100.00 autonomous single limit. Intercepted for human supervisor review.",
-  digital: "Digital goods policy check: Non-refundable digital download claim ($30.00). Autonomous denial expected.",
+  digital: "Digital goods policy check: Non-refundable digital download claim ($30.00). Autonomous denial expected under policy.",
   injection: "Prompt injection attack: Adversarial payload attempting to override policy instructions and force unauthorized disbursement.",
   revocation: "Kill switch revocation test: Autonomous agent authority revoked. Fails closed immediately without executing LLM.",
 };
@@ -271,6 +310,9 @@ async function applyPreset(name) {
 
   const custEl = $("sbCustomer");
   if (custEl) custEl.value = p.customerKey;
+  if (roleSel) roleSel.value = p.customerKey;
+  apiKey = p.customerKey;
+
   await loadSandbox();
   if (p.orderId && $("sbOrder")) $("sbOrder").value = p.orderId;
   if ($("sbAmount")) $("sbAmount").value = p.amount.toFixed(2);
@@ -331,14 +373,15 @@ function renderPipelineResult(r) {
   // Step 1: Intake Specialist
   const stepIntake = $("step-intake");
   if (stepIntake) stepIntake.className = "timeline-item " + (r.case_id ? "ok" : "warn");
-  $("badge-case-id").textContent = r.case_id || "No Case";
-  $("desc-intake").textContent = r.case_id ? `Successfully opened refund case #${r.case_id}.` : "Request blocked before case creation.";
+  $("badge-case-id").textContent = r.case_id ? `#${r.case_id}` : "No Case";
+  const ackMsg = r.acknowledgement_email ? ` · Ack Email: ${r.acknowledgement_email.message_id || "sent"}` : "";
+  $("desc-intake").textContent = r.case_id ? `Successfully opened refund case #${r.case_id} in transactional ledger${ackMsg}.` : "Request blocked before case creation.";
 
   // Step 2: Records Specialist
   const stepRecords = $("step-records");
   if (stepRecords) stepRecords.className = "timeline-item " + (r.order ? "ok" : "warn");
   if (r.order) {
-    $("desc-records").textContent = `Verified order ${r.order.id} (${r.order.product_name}, $${r.order.amount.toFixed(2)}). Purchased: ${r.order.purchase_date.slice(0, 10)}. Tenant isolation confirmed.`;
+    $("desc-records").textContent = `Verified order ${r.order.id} (${r.order.product_name}, $${r.order.amount.toFixed(2)}). Purchased: ${r.order.purchase_date.slice(0, 10)}. Tenant isolation verified.`;
   }
 
   // Step 3: Vector RAG
@@ -349,13 +392,17 @@ function renderPipelineResult(r) {
   if (policies.length) {
     $("desc-rag").textContent = `Retrieved ${policies.length} relevant policy chunk(s) via ChromaDB semantic vector search.`;
     dataRag.style.display = "block";
-    fill("data-rag", policies.map(p => el("div", { style: "margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border-subtle)" },
-      el("div", { style: "display:flex;align-items:center;justify-content:space-between;margin-bottom:2px" },
-        el("span", {}, badge(p.id), el("b", { style: "margin-left:6px" }, p.title)),
-        p.score != null ? el("span", { class: "chip purple font-mono" }, `Similarity: ${(p.score * 100).toFixed(1)}%`) : null
-      ),
-      el("div", { class: "muted", style: "font-size:12px;margin-top:2px" }, p.content)
-    )));
+    fill("data-rag", policies.map(p => {
+      const pct = p.score != null ? Math.round(p.score * 100) : null;
+      return el("div", { style: "margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border-subtle)" },
+        el("div", { style: "display:flex;align-items:center;justify-content:space-between;margin-bottom:4px" },
+          el("span", {}, badge(p.id), el("b", { style: "margin-left:6px" }, p.title)),
+          pct != null ? el("span", { class: "chip purple font-mono" }, `Similarity: ${pct}%`) : null
+        ),
+        pct != null ? el("div", { class: "meter", style: "margin:4px 0 6px" }, el("div", { style: `width:${Math.min(100, pct)}%;background:var(--semantic-purple)` })) : null,
+        el("div", { class: "muted", style: "font-size:12px;margin-top:2px;line-height:1.4" }, p.content)
+      );
+    }));
   } else {
     dataRag.style.display = "none";
   }
@@ -377,7 +424,7 @@ function renderPipelineResult(r) {
         proposal.followed_embedded_instructions
           ? el("span", { class: "chip warning" }, "Adversarial Injection Detected: Followed User Prompt")
           : el("span", { class: "chip success" }, "Standard Policy Evaluation"),
-        el("span", { class: "muted font-mono", style: "font-size:12px" }, `Policies cited: ${(proposal.policies_considered || []).join(", ") || "None"}`)
+        el("span", { class: "muted font-mono", style: "font-size:11.5px" }, `Policies cited: ${(proposal.policies_considered || []).join(", ") || "None"}`)
       )
     );
   } else {
@@ -418,30 +465,37 @@ function renderPipelineResult(r) {
     $("desc-guard").textContent = `All guardrails passed ($100 per-transaction cap, weekly cap, tenant isolation, active authority OK).`;
   }
 
-  if (guard) {
-    dataGuard.style.display = "block";
-    fill("data-guard", el("div", { class: "font-mono" }, `Guardrail Code: ${guard.code} · Action: ${guard.verdict}`));
-  } else {
-    dataGuard.style.display = "none";
-  }
+  dataGuard.style.display = "block";
+  const checkRow = (label, passed, desc) => el("div", { style: "display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border-subtle);font-size:12px" },
+    el("span", { class: "muted" }, label),
+    el("span", { class: `chip ${passed ? "success" : "danger"} font-mono` }, desc)
+  );
+
+  fill("data-guard",
+    checkRow("Single Transaction Cap ($100 max)", !(guard && guard.code === "ESCALATE_CAP"), (guard && guard.code === "ESCALATE_CAP") ? "EXCEEDED ($100+)" : "PASSED (<=$100)"),
+    checkRow("Emergency Authority Status", !isRevoked, isRevoked ? "REVOKED (FAIL-CLOSED)" : "ACTIVE"),
+    checkRow("Tenant Order Ownership", r.order != null, r.order != null ? "VERIFIED" : "UNAUTHORIZED"),
+    guard ? el("div", { class: "font-mono muted", style: "margin-top:6px;font-size:11.5px" }, `Rule Code: ${guard.code} · Verdict: ${guard.verdict}`) : null
+  );
 
   // Step 6: Bank & Email
   const stepBank = $("step-bank");
+  const emailMsg = r.decision_email ? ` Decision email (${r.decision_email.message_id || "dispatched"}) sent.` : " Confirmation email sent.";
   if (isApproved) {
     if (stepBank) stepBank.className = "timeline-item ok";
-    $("badge-bank").textContent = `Transferred ${money(r.refunded_amount)}`;
+    $("badge-bank").textContent = `Disbursed ${money(r.refunded_amount)}`;
     $("badge-bank").className = "chip success";
-    $("desc-bank").textContent = `Disbursed ${money(r.refunded_amount)} to customer bank account. Confirmation email sent. New live balance: ${money(r.new_bank_balance)}.`;
+    $("desc-bank").textContent = `Transferred ${money(r.refunded_amount)} to customer bank account.${emailMsg} New balance: ${money(r.new_bank_balance)}.`;
   } else if (isEscalated) {
     if (stepBank) stepBank.className = "timeline-item warn";
     $("badge-bank").textContent = "Held in Escrow";
     $("badge-bank").className = "chip warning";
-    $("desc-bank").textContent = "No funds disbursed. Payout held in escrow pending human supervisor review.";
+    $("desc-bank").textContent = `No funds disbursed. Payout held in escrow pending human supervisor review.${emailMsg}`;
   } else {
     if (stepBank) stepBank.className = "timeline-item bad";
     $("badge-bank").textContent = "No Payout";
     $("badge-bank").className = "chip danger";
-    $("desc-bank").textContent = "Zero funds transferred. Formal decision notification dispatched to customer inbox.";
+    $("desc-bank").textContent = `Zero funds transferred.${emailMsg}`;
   }
 
   // Outcome Banner
@@ -481,13 +535,13 @@ async function decideCurrentCase(approve) {
   });
 }
 
-async function resetDemoData() {
+async function resetDemoData(keyOverride) {
   if (!confirm("Reset all demo data? Customers, orders, policies, vector collections and balances will return to seed state.")) return;
-  await api("POST", "/admin/reset", null, "admin-key");
+  await api("POST", "/admin/reset", null, keyOverride || "admin-key");
   toast("Demo database and vector collections reset to initial state!");
-  $("pipelineEmpty").style.display = "block";
-  $("pipelineWrap").style.display = "none";
-  $("outcomeBox").style.display = "none";
+  if ($("pipelineEmpty")) $("pipelineEmpty").style.display = "block";
+  if ($("pipelineWrap")) $("pipelineWrap").style.display = "none";
+  if ($("outcomeBox")) $("outcomeBox").style.display = "none";
   await loadSandbox();
   await loadHealth();
 }
@@ -496,33 +550,50 @@ window.resetDemoData = resetDemoData;
 // ---------------------------------------------------------------- Customer Portal
 let orders = [];
 async function loadCustomer() {
-  const [o, cases, emails] = await Promise.all([api("GET", "/me/orders"), api("GET", "/me/cases"), api("GET", "/me/emails")]);
-  orders = o;
-  const sel = $("orderSel"), prev = sel.value;
-  sel.replaceChildren(...orders.map(x => el("option", { value: x.id }, `${x.id} · ${x.product_name} · ${money(x.amount)}`)));
-  if (orders.some(x => x.id === prev)) sel.value = prev; else syncAmount();
+  const key = customerPortalKey();
+  try {
+    const [o, cases, emails] = await Promise.all([
+      api("GET", "/me/orders", null, key),
+      api("GET", "/me/cases", null, key),
+      api("GET", "/me/emails", null, key),
+    ]);
+    orders = o;
+    const sel = $("orderSel"), prev = sel.value;
+    sel.replaceChildren(...orders.map(x => el("option", { value: x.id }, `${x.id} · ${x.product_name} · ${money(x.amount)}`)));
+    if (orders.some(x => x.id === prev)) sel.value = prev; else syncAmount();
 
-  fill("myOrders", table([
-    { label: "Order ID", key: "id", mono: true },
-    { label: "Product Description", key: "product_name" },
-    { label: "Category", key: "category" },
-    { label: "Purchase Date", render: r => r.purchase_date.slice(0, 10) },
-    { label: "Total Paid", render: r => money(r.amount), num: true },
-  ], orders));
+    fill("myOrders", table([
+      { label: "Order ID", key: "id", mono: true },
+      { label: "Product Description", key: "product_name" },
+      { label: "Category", key: "category" },
+      { label: "Purchase Date", render: r => r.purchase_date.slice(0, 10) },
+      { label: "Total Paid", render: r => money(r.amount), num: true },
+    ], orders));
 
-  fill("myCases", table([
-    { label: "Case ID", key: "id", mono: true },
-    { label: "Order", key: "order_id", mono: true },
-    { label: "Amount", render: r => money(r.amount_requested), num: true },
-    { label: "Status", render: r => badge(r.status) },
-    { label: "Resolution / Reason", render: r => r.decision_reason || "—" },
-  ], cases, "No refund claims filed yet."));
+    fill("myCases", table([
+      { label: "Case ID", key: "id", mono: true },
+      { label: "Order", key: "order_id", mono: true },
+      { label: "Amount", render: r => money(r.amount_requested), num: true },
+      { label: "Status", render: r => badge(r.status) },
+      { label: "Resolution / Reason", render: r => r.decision_reason || "—" },
+    ], cases, "No refund claims filed yet."));
 
-  fill("inbox", emails.length ? emails.map(e => el("div", { class: "email-item" },
-    el("div", { class: "email-subject" }, e.subject),
-    el("div", { class: "email-body" }, e.body),
-    el("div", { class: "email-meta font-mono" }, `${e.email_type} · ${e.sent_at}`)
-  )) : el("div", { class: "empty", style: "padding:20px;text-align:center;color:var(--text-tertiary)" }, "No notifications received yet."));
+    fill("inbox", emails.length ? emails.map(e => el("div", { class: "email-item" },
+      el("div", { class: "email-subject", style: "display:flex;justify-content:space-between;align-items:center;" },
+        el("span", {}, e.subject),
+        el("span", { class: "chip success font-mono", style: "font-size:10px;padding:2px 6px;" }, "DELIVERED")
+      ),
+      el("div", { class: "email-body" }, e.body),
+      el("div", { class: "email-meta font-mono" }, `${e.email_type} · ${e.sent_at}`)
+    )) : el("div", { class: "empty", style: "padding:20px;text-align:center;color:var(--text-tertiary)" }, "No notifications received yet."));
+  } catch (e) {
+    orders = [];
+    if ($("orderSel")) $("orderSel").replaceChildren();
+    fill("myOrders", el("div", { class: "empty", style: "padding:20px;text-align:center;color:var(--text-tertiary)" }, e.message));
+    fill("myCases", el("div", { class: "empty", style: "padding:20px;text-align:center;color:var(--text-tertiary)" }, e.message));
+    fill("inbox", el("div", { class: "empty", style: "padding:20px;text-align:center;color:var(--text-tertiary)" }, e.message));
+    toast(e.message);
+  }
 }
 
 function syncAmount() {
@@ -531,6 +602,9 @@ function syncAmount() {
 }
 const orderSelEl = $("orderSel");
 if (orderSelEl) orderSelEl.addEventListener("change", syncAmount);
+
+const customerAccountEl = $("customerAccount");
+if (customerAccountEl) customerAccountEl.addEventListener("change", () => loadCustomer());
 
 const refundFormEl = $("refundForm");
 if (refundFormEl) {
@@ -544,7 +618,7 @@ if (refundFormEl) {
           amount: parseFloat($("amount").value),
           reason: $("reason").value
         }
-      });
+      }, customerPortalKey());
       const r = out.result;
       fill("refundResult", el("div", { class: `outcome-banner ${r.status.toLowerCase()}`, style: "margin-top:14px" },
         el("div", { style: "display:flex;align-items:center;gap:8px" }, badge(r.status), r.case_id ? el("span", { class: "font-mono" }, `#${r.case_id}`) : null),
@@ -559,52 +633,69 @@ if (refundFormEl) {
 
 // ---------------------------------------------------------------- Supervisor Portal
 async function loadSupervisor() {
-  const [g, cases] = await Promise.all([
-    api("GET", "/guardrails/status", null, "supervisor-key"),
-    api("GET", "/supervisor/cases?status=ESCALATED", null, "supervisor-key")
-  ]);
-  const pct = Math.min(100, 100 * g.weekly_autonomous_total / g.max_weekly_autonomous_refunds);
-  fill("guardStatus",
-    el("div", { class: "metric-row" }, el("span", { class: "metric-label" }, "Kill Switch Status"), badge(g.kill_switch_active ? "REVOKED" : "ALLOWED")),
-    el("div", { class: "metric-row" }, el("span", { class: "metric-label" }, "Per-Transaction Autonomous Cap"), el("b", { class: "font-mono" }, money(g.max_autonomous_refund_per_tx))),
-    el("div", { class: "metric-row" }, el("span", { class: "metric-label" }, "Autonomous Spend (Rolling 7d)"),
-      el("b", { class: "font-mono" }, `${money(g.weekly_autonomous_total)} / ${money(g.max_weekly_autonomous_refunds)}`)),
-    el("div", { class: "meter", role: "img", "aria-label": `${pct.toFixed(0)}% of weekly cap used` },
-      el("div", { style: `width:${pct}%` })));
+  const key = supervisorPortalKey();
+  try {
+    const [g, cases] = await Promise.all([
+      api("GET", "/guardrails/status", null, key),
+      api("GET", "/supervisor/cases?status=ESCALATED", null, key)
+    ]);
+    const pct = Math.min(100, 100 * g.weekly_autonomous_total / g.max_weekly_autonomous_refunds);
+    fill("guardStatus",
+      el("div", { class: "metric-row" }, el("span", { class: "metric-label" }, "Kill Switch Status"), badge(g.kill_switch_active ? "REVOKED" : "ALLOWED")),
+      el("div", { class: "metric-row" }, el("span", { class: "metric-label" }, "Per-Transaction Autonomous Cap"), el("b", { class: "font-mono" }, money(g.max_autonomous_refund_per_tx))),
+      el("div", { class: "metric-row" }, el("span", { class: "metric-label" }, "Autonomous Spend (Rolling 7d)"),
+        el("b", { class: "font-mono" }, `${money(g.weekly_autonomous_total)} / ${money(g.max_weekly_autonomous_refunds)}`)),
+      el("div", { class: "meter", role: "img", "aria-label": `${pct.toFixed(0)}% of weekly cap used` },
+        el("div", { style: `width:${pct}%` })));
 
-  const btn = $("ksBtn");
-  btn.dataset.active = g.kill_switch_active ? "1" : "";
-  btn.textContent = g.kill_switch_active ? "Restore Agent Authority" : "Engage Kill Switch";
-  btn.className = g.kill_switch_active ? "btn btn-primary" : "btn btn-danger";
+    const btn = $("ksBtn");
+    btn.dataset.active = g.kill_switch_active ? "1" : "";
+    btn.textContent = g.kill_switch_active ? "Restore Agent Authority" : "Engage Kill Switch";
+    btn.className = g.kill_switch_active ? "btn btn-primary" : "btn btn-danger";
 
-  fill("escalated", cases.length ? cases.map(c => {
-    const comment = el("input", { class: "input-text", style: "margin:8px 0", placeholder: "Supervisor audit rationale", "aria-label": `Comment for ${c.id}` });
-    const decide = (approve) => (ev) => busy(ev.currentTarget, async () => {
-      await api("POST", `/supervisor/cases/${encodeURIComponent(c.id)}/decision`,
-        { approve, comment: comment.value }, "supervisor-key");
-      toast(`Case <b>${c.id}</b> ${approve ? "approved" : "denied"}`);
-      await Promise.all([loadSupervisor(), loadAudit()]);
-    });
-    return el("div", { class: "case-card" },
-      el("div", { style: "display:flex;justify-content:space-between;align-items:center;margin-bottom:6px" },
-        el("span", { class: "font-mono font-semibold" }, c.id),
-        el("span", { class: "font-mono font-semibold", style: "color:var(--text-primary)" }, money(c.amount_requested))
-      ),
-      el("p", { style: "margin:4px 0;font-size:12.5px" }, el("span", { class: "muted" }, "Customer: "), el("span", { class: "font-mono" }, c.customer_id), " · Order: ", el("span", { class: "font-mono" }, c.order_id)),
-      el("p", { style: "margin:4px 0;font-size:12.5px" }, el("span", { class: "muted" }, "Reason: "), c.reason),
-      el("p", { style: "margin:4px 0;font-size:12.5px" }, el("span", { class: "muted" }, "Guardrail Interception: "), el("span", { class: "font-mono" }, c.decision_reason || "—")),
-      comment,
-      el("div", { style: "display:flex;gap:8px;margin-top:8px" },
-        el("button", { class: "btn btn-sm btn-primary", onclick: decide(true) }, "Approve & Disburse"),
-        el("button", { class: "btn btn-sm btn-danger", onclick: decide(false) }, "Deny Claim")));
-  }) : el("div", { class: "empty", style: "padding:24px;text-align:center;color:var(--text-tertiary)" }, "No escalated cases currently waiting for human supervisor review."));
+    fill("escalated", cases.length ? cases.map(c => {
+      const comment = el("input", { class: "input-text", style: "margin:8px 0", placeholder: "Supervisor audit rationale", "aria-label": `Comment for ${c.id}` });
+      const decide = (approve) => (ev) => busy(ev.currentTarget, async () => {
+        await api("POST", `/supervisor/cases/${encodeURIComponent(c.id)}/decision`,
+          { approve, comment: comment.value }, supervisorPortalKey());
+        toast(`Case <b>${c.id}</b> ${approve ? "approved" : "denied"}`);
+        await Promise.all([loadSupervisor(), loadAudit()]);
+      });
+      return el("div", { class: "case-card" },
+        el("div", { style: "display:flex;justify-content:space-between;align-items:center;margin-bottom:6px" },
+          el("span", { class: "font-mono font-semibold" }, c.id),
+          el("span", { class: "font-mono font-semibold", style: "color:var(--text-primary)" }, money(c.amount_requested))
+        ),
+        el("p", { style: "margin:4px 0;font-size:12.5px" }, el("span", { class: "muted" }, "Customer: "), el("span", { class: "font-mono" }, c.customer_id), " · Order: ", el("span", { class: "font-mono" }, c.order_id)),
+        el("p", { style: "margin:4px 0;font-size:12.5px" }, el("span", { class: "muted" }, "Reason: "), c.reason),
+        el("p", { style: "margin:4px 0;font-size:12.5px" }, el("span", { class: "muted" }, "Guardrail Interception: "), el("span", { class: "font-mono" }, c.decision_reason || "—")),
+        comment,
+        el("div", { style: "display:flex;gap:8px;margin-top:8px" },
+          el("button", { class: "btn btn-sm btn-primary", onclick: decide(true) }, "Approve & Disburse"),
+          el("button", { class: "btn btn-sm btn-danger", onclick: decide(false) }, "Deny Claim")));
+    }) : el("div", { class: "empty", style: "padding:24px;text-align:center;color:var(--text-tertiary)" }, "No escalated cases currently waiting for human supervisor review."));
+  } catch (e) {
+    fill("guardStatus", el("div", { class: "metric-row" }, el("span", { class: "metric-label" }, "Access"), el("span", {}, e.message)));
+    fill("escalated", el("div", { class: "empty", style: "padding:24px;text-align:center;color:var(--text-tertiary)" }, e.message));
+    toast(e.message);
+  }
+}
+
+const supervisorAccountEl = $("supervisorAccount");
+if (supervisorAccountEl) {
+  supervisorAccountEl.addEventListener("change", () => {
+    rtRendered = false;
+    loadSupervisor();
+    loadRedTeamButtons();
+    loadAudit();
+  });
 }
 
 const ksBtnEl = $("ksBtn");
 if (ksBtnEl) {
   ksBtnEl.addEventListener("click", (ev) => busy(ev.currentTarget, async () => {
     const active = !ev.currentTarget.dataset.active;
-    await api("POST", "/supervisor/kill-switch", { active, reason: $("ksReason").value }, "supervisor-key");
+    await api("POST", "/supervisor/kill-switch", { active, reason: $("ksReason").value }, supervisorPortalKey());
     $("ksReason").value = "";
     toast(active ? "Kill switch engaged: All agent authority revoked fail-closed." : "Agent authority restored.");
     await Promise.all([loadSupervisor(), loadHealth(), loadAudit()]);
@@ -614,22 +705,26 @@ if (ksBtnEl) {
 let rtRendered = false;
 async function loadRedTeamButtons() {
   if (rtRendered) return;
-  const tests = await api("GET", "/tests", null, "supervisor-key");
-  const runAll = el("button", { class: "btn btn-sm btn-primary" }, "Run All Attacks");
-  runAll.addEventListener("click", () => busy(runAll, async () => {
-    fill("rtResults");
-    for (const t of tests) await runRt(t);
-  }));
-  fill("rtButtons", runAll, tests.map(t => {
-    const b = el("button", { class: "btn btn-sm btn-secondary font-mono" }, t.toUpperCase());
-    b.addEventListener("click", () => busy(b, () => runRt(t, true)));
-    return b;
-  }));
-  rtRendered = true;
+  try {
+    const tests = await api("GET", "/tests", null, supervisorPortalKey());
+    const runAll = el("button", { class: "btn btn-sm btn-primary" }, "Run All Attacks");
+    runAll.addEventListener("click", () => busy(runAll, async () => {
+      fill("rtResults");
+      for (const t of tests) await runRt(t);
+    }));
+    fill("rtButtons", runAll, tests.map(t => {
+      const b = el("button", { class: "btn btn-sm btn-secondary font-mono" }, t.toUpperCase());
+      b.addEventListener("click", () => busy(b, () => runRt(t, true)));
+      return b;
+    }));
+    rtRendered = true;
+  } catch (e) {
+    fill("rtButtons", el("div", { class: "empty", style: "padding:12px;color:var(--text-tertiary)" }, e.message));
+  }
 }
 
 async function runRt(t, replace) {
-  const r = await api("POST", `/tests/${t}`, null, "supervisor-key");
+  const r = await api("POST", `/tests/${t}`, null, supervisorPortalKey());
   const s = r.summary;
   const block = el("div", { style: "margin-top:20px;padding-top:16px;border-top:1px solid var(--border-subtle)" },
     el("div", { style: "display:flex;align-items:center;justify-content:space-between;margin-bottom:10px" },
@@ -640,7 +735,7 @@ async function runRt(t, replace) {
           : s.findings.length
             ? el("span", { class: "badge b-warn" }, `${s.findings.length} finding(s)`)
             : el("span", { class: "badge b-ok" }, "all defended"),
-        el("span", { class: "muted", style: "font-size:12px" }, `${s.defended}/${s.attacks} defended`)
+        el("span", { class: "muted font-mono", style: "font-size:12px" }, `${s.defended}/${s.attacks} defended`)
       )
     ),
     el("div", { class: "table-container" }, table([
@@ -648,30 +743,52 @@ async function runRt(t, replace) {
       { label: "Scenario Description", key: "title" },
       { label: "Defense Layer", render: a => a.category === "guardrail" ? "Guardrail (Deterministic)" : "LLM Policy" },
       { label: "Outcome", render: a => badge(a.outcome) },
-      { label: "Final Status", render: a => [badge(a.final_status), a.final_code ? el("div", { class: "font-mono muted", style: "font-size:12px" }, a.final_code) : null] },
+      { label: "Final Status", render: a => [badge(a.final_status), a.final_code ? el("div", { class: "font-mono muted", style: "font-size:11.5px" }, a.final_code) : null] },
       { label: "Paid Out", render: a => money(a.money_paid_out), num: true },
     ], r.attacks)),
-    el("div", { class: "muted font-mono", style: "margin-top:8px;font-size:12px" }, `Evidence Path: ${r.evidence_path}`));
+    el("div", { class: "muted font-mono", style: "margin-top:8px;font-size:11.5px" }, `Evidence Path: ${r.evidence_path}`));
   if (replace) fill("rtResults", block); else $("rtResults").append(block);
   await loadAudit();
 }
 
 // ---------------------------------------------------------------- Admin & Vector DB
 async function loadAdmin() {
-  const [p, vs] = await Promise.all([
-    api("GET", "/policies", null, "admin-key"),
-    api("GET", "/policies/vector-stats", null, "admin-key")
-  ]);
-  fill("policies", table([
-    { label: "Policy ID", key: "id", mono: true },
-    { label: "Policy Title", key: "title" },
-    { label: "Policy Content", key: "content" },
-    { label: "Indexed By", key: "uploaded_by", mono: true },
-  ], p));
-  if (vs && $("indexedCount")) {
-    $("indexedCount").textContent = `${vs.indexed_vectors} vectors in '${vs.collection}'`;
+  const key = adminPortalKey();
+  try {
+    const [p, vs, outbox] = await Promise.all([
+      api("GET", "/policies", null, key),
+      api("GET", "/policies/vector-stats", null, key),
+      api("GET", "/api/email/outbox", null, key).catch(() => [])
+    ]);
+    fill("policies", table([
+      { label: "Policy ID", key: "id", mono: true },
+      { label: "Policy Title", key: "title" },
+      { label: "Policy Content", key: "content" },
+      { label: "Indexed By", key: "uploaded_by", mono: true },
+    ], p));
+    if (vs && $("indexedCount")) {
+      $("indexedCount").textContent = `${vs.indexed_vectors} vectors in '${vs.collection}'`;
+    }
+    if ($("emailOutbox") && outbox) {
+      fill("emailOutbox", table([
+        { label: "Message ID", key: "message_id", mono: true },
+        { label: "Case ID", key: "case_id", mono: true },
+        { label: "Recipient", key: "to" },
+        { label: "Subject", key: "subject" },
+        { label: "Type", key: "email_type", mono: true },
+        { label: "Status", render: m => el("span", { class: "chip success font-mono" }, m.status || "DELIVERED") },
+        { label: "Sent At", key: "sent_at", mono: true }
+      ], outbox, "No emails in outbox yet."));
+    }
+  } catch (e) {
+    fill("policies", el("div", { class: "empty", style: "padding:20px;text-align:center;color:var(--text-tertiary)" }, e.message));
+    if ($("indexedCount")) $("indexedCount").textContent = "—";
+    toast(e.message);
   }
 }
+
+const adminAccountEl = $("adminAccount");
+if (adminAccountEl) adminAccountEl.addEventListener("change", () => loadAdmin());
 
 const policyFormEl = $("policyForm");
 if (policyFormEl) {
@@ -683,7 +800,7 @@ if (policyFormEl) {
         title: $("pTitle").value,
         content: $("pContent").value,
         tags: $("pTags").value
-      }, "admin-key");
+      }, adminPortalKey());
       ev.target.reset();
       toast("Policy successfully indexed into ChromaDB and SQLite!");
       await Promise.all([loadAdmin(), loadAudit(), loadHealth()]);
@@ -692,11 +809,30 @@ if (policyFormEl) {
 }
 
 const resetBtnEl = $("resetBtn");
-if (resetBtnEl) resetBtnEl.addEventListener("click", resetDemoData);
+if (resetBtnEl) {
+  resetBtnEl.addEventListener("click", (ev) => busy(ev.currentTarget, async () => {
+    await resetDemoData(adminPortalKey());
+    await loadAdmin();
+  }));
+}
+
+function auditReaderKey() {
+  if (currentTab === "admin") return adminPortalKey();
+  if (currentTab === "supervisor") return supervisorPortalKey();
+  // Audit tab / sandbox helpers: prefer supervisor, fall back to admin
+  return supervisorPortalKey();
+}
 
 // ---------------------------------------------------------------- Cryptographic Audit Log
 async function loadAudit() {
-  const logs = await api("GET", "/logs", null, "supervisor-key");
+  let logs;
+  try {
+    logs = await api("GET", "/logs", null, auditReaderKey());
+  } catch (e) {
+    fill("audit", el("div", { class: "empty", style: "padding:20px;text-align:center;color:var(--text-tertiary)" }, e.message));
+    fill("auditSupervisor", el("div", { class: "empty", style: "padding:20px;text-align:center;color:var(--text-tertiary)" }, e.message));
+    return;
+  }
   logs.reverse();
   const renderAuditRows = (containerId) => {
     fill(containerId, table([
@@ -720,10 +856,15 @@ async function loadAudit() {
 }
 
 async function verifyAuditChain(pillId) {
-  const v = await api("GET", "/logs/verify", null, "supervisor-key");
-  fill(pillId, v.valid ? badge("ALLOWED") : badge("BLOCKED"),
-    el("span", { class: "muted", style: "font-size:12px;margin-left:6px" },
-      v.valid ? `${v.entries} entries · SHA-256 chain verified intact` : `Tampering detected at entry #${v.first_bad_id}`));
+  try {
+    const v = await api("GET", "/logs/verify", null, auditReaderKey());
+    fill(pillId, v.valid ? badge("ALLOWED") : badge("BLOCKED"),
+      el("span", { class: "muted", style: "font-size:12px;margin-left:6px" },
+        v.valid ? `${v.entries} entries · SHA-256 chain verified intact` : `Tampering detected at entry #${v.first_bad_id}`));
+  } catch (e) {
+    fill(pillId, badge("BLOCKED"), el("span", { class: "muted", style: "font-size:12px;margin-left:6px" }, e.message));
+    toast(e.message);
+  }
 }
 const vBtn = $("verifyBtn");
 if (vBtn) vBtn.addEventListener("click", () => verifyAuditChain("chainPill"));
