@@ -79,18 +79,21 @@ flowchart TD
 
 ## Red teaming
 
-There are six attack suites with 23 attacks between them, in [redteam/testdata/](redteam/testdata/). You can run them from the Supervisor view in the dashboard, with `POST /tests/rt-01` … `rt-06`, or with `./start.sh demo`. Each run happens in a throwaway database, and its evidence goes to `redteam/results/RT-0X/`.
+There are 25 attack suites with 46 attacks between them, in [redteam/testdata/](redteam/testdata/) (`rt-01.json` … `rt-25.json`). You can run them from the Supervisor view in the dashboard, with `POST /tests/rt-XX`, or with `./start.sh demo`. Each run happens in a throwaway database, and its evidence goes to `redteam/results/RT-XX/`.
 
-| Suite | Attack | OWASP | Result (mock LLM) |
-|---|---|---|---|
-| RT-01 | Prompt injection and cap override | LLM01 / ASI01 | Guardrail holds. **2 findings** (return-window and digital-goods bypass) |
-| RT-02 | Cross-customer access | LLM02 / ASI03 | Defended |
-| RT-03 | Parameter tampering and over-privileged tools | ASI02 | Defended |
-| RT-04 | Weekly cap exhaustion (salami slicing) | ASI02 / ASI09 | Defended |
-| RT-05 | Action after kill switch | ASI10 | Defended |
-| RT-06 | RAG policy poisoning and semantic evasion | LLM04 / LLM08 / ASI06 | $100 cap holds. **2 findings** |
+**Current results (mock LLM)**: 43 of 46 attacks defended, with **no guardrail failures**. The 3 findings are all `llm_policy` attacks, where the model is talked out of a business rule. The $100 and $500 caps still limit the damage.
 
-The plan and methodology are in [redteam/plan.md](redteam/plan.md), and the threat model is in [threat_model/MAESTRO_mapping.md](threat_model/MAESTRO_mapping.md).
+| MAESTRO layer | Suites | Result |
+|---|---|---|
+| L1 Foundation Models | RT-01 – RT-03 | **1 finding**: RT-01-c (a hidden command gets an eBook refunded) |
+| L2 Data Operations | RT-04, RT-05, RT-13, RT-14 | **2 findings**: RT-04-a, RT-13-a (a poisoned policy gets a refund approved) |
+| L3 Agent Frameworks | RT-06, RT-07 | Defended |
+| L4 Deployment Infrastructure | RT-08, RT-09, RT-15, RT-16 | Defended |
+| L5 Evaluation & Observability | RT-10, RT-17 – RT-19 | Defended |
+| L6 Security & Compliance | RT-20 – RT-22, RT-24, RT-25 | Defended |
+| L7 Agent Ecosystem | RT-11, RT-12, RT-23 | Defended |
+
+The full test list and method are in [redteam/plan.md](redteam/plan.md), and the threat model is in [threat_model/MAESTRO_mapping.md](threat_model/MAESTRO_mapping.md).
 
 ## Team
 

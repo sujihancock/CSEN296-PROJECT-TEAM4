@@ -9,7 +9,7 @@ Calls the local endpoints to show the full system and collect evidence:
   - POST /tasks + supervisor decision    (refund over $100 -> ESCALATED -> supervisor approves)
   - POST /tasks with spoofed customer_id (identity check -> 403)
   - Kill switch on -> /tasks -> REVOKED -> kill switch off
-  - POST /tests/rt-01 .. rt-06           (red-team attacks, run in sandbox)
+  - POST /tests/rt-01 .. rt-25           (red-team attacks, run in sandbox)
   - GET  /logs, GET /logs/verify         (audit trail + hash-chain check)
 Saves sanitized evidence to `redteam/results/collected_evidence_<ts>.json`.
 

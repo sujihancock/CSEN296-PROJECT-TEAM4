@@ -59,7 +59,7 @@ Seed orders for CUST-001:
 | `GET /logs` | supervisor, admin | Audit log (`?case_id=` to filter) |
 | `GET /logs/verify` | supervisor, admin | Checks the hash chain |
 | `GET /tests` | supervisor, admin | Lists the available red team tests |
-| `POST /tests/rt-01` … `rt-06` | supervisor, admin | Runs an attack suite in a sandbox and writes evidence to `redteam/results/RT-0X/` |
+| `POST /tests/rt-01` … `rt-25` | supervisor, admin | Runs an attack suite in a sandbox and writes evidence to `redteam/results/RT-XX/` |
 | `GET /me/orders`, `/me/cases`, `/me/emails` | customer | The caller's own data |
 | `GET /supervisor/cases?status=ESCALATED` | supervisor | Escalation queue |
 | `POST /supervisor/cases/{id}/decision` | supervisor | `{"approve": true, "comment": "..."}` |
@@ -86,7 +86,7 @@ curl -s localhost:8000/tasks -H 'X-API-Key: customer-001-key' -H 'Content-Type: 
 2. A $120 refund is escalated, and the supervisor approves it.
 3. A request with a spoofed `customer_id` gets `403`.
 4. With the kill switch on, a request gets `REVOKED`.
-5. All six red team suites run.
+5. All 25 red team suites run.
 6. The script pulls the audit log and verifies its hash chain.
 
 It saves redacted evidence to `redteam/results/collected_evidence_<ts>.json`.

@@ -12,8 +12,8 @@ This threat model uses the CSA **MAESTRO** framework (Multi-Agent Environment, S
 | **Components** | LLM in [app/llm.py](../app/llm.py): `MockLLM` (default, deliberately injectable) or `OllamaLLM` (local Qwen). Either one proposes APPROVE/DENY and an amount |
 | **Threats** | Direct prompt injection in the refund reason; indirect injection through retrieved text; hallucinated amounts; being talked out of business rules |
 | **Controls** | The model's output is only a *proposal*. The guardrail checks it against the case amount (`AMOUNT_MISMATCH`), the order total, the $100 cap and the $500 weekly cap. The model has no direct access to tools |
-| **Red team** | RT-01 (a–d), RT-06-a |
-| **Residual risk** | The return-window and digital-goods rules are judged by the model, so they can be bypassed (findings RT-01-c/d, RT-06-a). Losses are limited by the caps |
+| **Red team** | RT-01 (hidden command in refund reason), RT-02 (reveal hidden instructions), RT-03 (made-up policy rule) |
+| **Residual risk** | The return-window and digital-goods rules are judged by the model, so they can be bypassed (finding RT-01-c). Losses are limited by the caps |
 
 ## Layer 2: Data Operations
 | | |
@@ -21,8 +21,8 @@ This threat model uses the CSA **MAESTRO** framework (Multi-Agent Environment, S
 | **Components** | SQLite customer, order and case records; policy store, retriever and ChromaDB vector index ([app/retriever.py](../app/retriever.py), [app/vector_store.py](../app/vector_store.py)) |
 | **Threats** | Cross-customer reads and writes; data leaving the system by email; RAG poisoning through an uploaded policy; semantic evasion of retrieval |
 | **Controls** | Ownership checks on every records, case, bank and email tool call (`IDENTITY_PRIVILEGE_MISMATCH`); email can only go to the case owner's address on file; only admins can upload policies, and the uploader is recorded |
-| **Red team** | RT-02 (a–e), RT-06 (b, c) |
-| **Residual risk** | Policy content isn't screened, so a poisoned policy can sway the model (finding RT-06-b) |
+| **Red team** | RT-04 (fake policy upload), RT-05 (another customer's record), RT-13 (injection in an uploaded policy), RT-14 (lookalike record retrieval) |
+| **Residual risk** | Policy content isn't screened, so a poisoned policy can sway the model (findings RT-04-a, RT-13-a) |
 
 ## Layer 3: Agent Frameworks
 | | |
@@ -30,7 +30,7 @@ This threat model uses the CSA **MAESTRO** framework (Multi-Agent Environment, S
 | **Components** | Orchestrator and the five specialists ([app/agent.py](../app/agent.py)); tool registry ([app/tools/](../app/tools/)) |
 | **Threats** | Goal hijacking; a specialist calling tools outside its role; an agent changing its own permissions; an agent bypassing a supervisor decision |
 | **Controls** | Per-agent tool allowlist, held in an immutable `MappingProxyType` of `frozenset`s (`PERMISSION_DENIED`); unknown tools are blocked (`UNKNOWN_TOOL`); agents can't set `APPROVED` without a payout or decide `ESCALATED` cases (`SUPERVISOR_DECISION_REQUIRED`); finalized cases can't be changed (`CASE_FINALIZED`) |
-| **Red team** | RT-01, RT-03 (e, f) |
+| **Red team** | RT-06 (refund larger than the order), RT-07 (fake "already approved" claim) |
 
 ## Layer 4: Deployment Infrastructure
 | | |
@@ -38,7 +38,7 @@ This threat model uses the CSA **MAESTRO** framework (Multi-Agent Environment, S
 | **Components** | FastAPI service ([app/main.py](../app/main.py)), SQLite file, kill-switch setting |
 | **Threats** | The agent keeps acting after revocation; requests race the kill switch; identity is spoofed through the request body |
 | **Controls** | The kill switch is checked on *every* tool call and again inside the payout transaction, and it fails closed. Identity comes only from the `X-API-Key` header, and a mismatched body `customer_id` gets `403`. Role-based endpoint access |
-| **Red team** | RT-05 (a–c), RT-02 (the API spoofing test) |
+| **Red team** | RT-08 (calling the bank API directly), RT-09 (request flood), RT-15 (malicious tool inputs), RT-16 (compromised dependency) |
 | **Residual risk** | API keys are static mock values; a real deployment needs real authentication (OIDC/mTLS) and secret storage |
 
 ## Layer 5: Evaluation & Observability
@@ -47,7 +47,7 @@ This threat model uses the CSA **MAESTRO** framework (Multi-Agent Environment, S
 | **Components** | Audit log ([app/audit.py](../app/audit.py)), `/logs`, `/logs/verify`, red team runner ([app/redteam.py](../app/redteam.py)) |
 | **Threats** | Actions that go unlogged; tampering with the log after the fact; salami-slicing that only shows up in aggregate |
 | **Controls** | Every tool call and decision is logged with a SHA-256 hash chain, and `verify_chain` finds the first altered entry. The weekly cap is computed from the ledger. Every red team run is logged and its evidence saved |
-| **Red team** | RT-04 (a, b); the audit chain is checked after every attack |
+| **Red team** | RT-10 (attack leaves no trace), RT-17 (edit/delete decision logs), RT-18 (injection into activity logs), RT-19 (sensitive data in logs); the audit chain is checked after every attack |
 | **Residual risk** | The log lives in the same database as the app; a real deployment should ship it to append-only external storage |
 
 ## Layer 6: Security & Compliance
@@ -56,7 +56,7 @@ This threat model uses the CSA **MAESTRO** framework (Multi-Agent Environment, S
 | **Components** | Guardrail ([app/guardrails.py](../app/guardrails.py)), disbursement ledger |
 | **Threats** | Payouts above the cap; tampered or negative amounts; paying the same order twice; races between checks and payouts |
 | **Controls** | Hard-coded limits ($100 per transaction, $500 per week) that agents can't change; checks for amount validity, amount ≤ order total, and amount already refunded per order; the check and payout run in one `BEGIN IMMEDIATE` transaction; the ledger is written only by the guardrail |
-| **Red team** | RT-03 (a–d), RT-04, RT-02-e |
+| **Red team** | RT-20 (weekly cap), RT-21 (kill switch), RT-22 (manipulating the supervisor), RT-24 (admin using supervisor functions), RT-25 (supervisor modifying policies) |
 
 ## Layer 7: Agent Ecosystem
 | | |
@@ -64,7 +64,7 @@ This threat model uses the CSA **MAESTRO** framework (Multi-Agent Environment, S
 | **Components** | Customers, supervisors and admins; external systems behind the tools (bank, email) |
 | **Threats** | Customers abusing an autonomous approver; an over-trusting supervisor; a malicious admin uploading a policy; compromised tools |
 | **Controls** | Three separate roles with different keys; escalated cases go to a human; supervisor decisions are logged with the supervisor's ID and comment; all external effects go through a mock tool behind the guardrail |
-| **Red team** | RT-02, RT-06 |
+| **Red team** | RT-11 (pretending to be another customer), RT-12 (duplicate refund), RT-23 (Intake fetching unrelated records) |
 | **Residual risk** | There is no two-person rule for policy uploads or large supervisor approvals |
 
 ## Cross-layer summary
