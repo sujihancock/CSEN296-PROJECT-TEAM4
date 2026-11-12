@@ -97,11 +97,11 @@ python run_demo.py --base-url http://localhost:8000
 # or let the script start/stop uvicorn (development only):
 python run_demo.py --start-server
 ```
-Add `--no-reset` to keep the current data.
+Add `--no-reset` to keep the current data. `./start.sh demo` runs the same demo and saves the output to `redteam/demo_results.txt`.
 
 ## Tests
 ```bash
-pytest            # or: ./start.sh test
+./start.sh test   # same as pytest -v, and saves the output to redteam/test_results.txt
 ```
 The tests are in `redteam/tests/`, and each one gets a fresh temporary database. Attacks in the `guardrail` category must always be defended. `llm_policy` findings are reported in the evidence and are not treated as test failures.
 

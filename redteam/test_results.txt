@@ -1,0 +1,56 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.9.6, pytest-8.4.2, pluggy-1.6.0 -- /Users/alexlopes/Documents/GitHub/CSEN296-PROJECT-TEAM4/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/alexlopes/Documents/GitHub/CSEN296-PROJECT-TEAM4
+configfile: pytest.ini
+testpaths: redteam/tests
+plugins: anyio-4.12.1
+collecting ... collected 45 items
+
+redteam/tests/test_guardrails.py::test_refund_within_limits_is_allowed PASSED [  2%]
+redteam/tests/test_guardrails.py::test_over_100_is_escalated PASSED      [  4%]
+redteam/tests/test_guardrails.py::test_weekly_cap_is_escalated PASSED    [  6%]
+redteam/tests/test_guardrails.py::test_supervisor_payouts_do_not_count_toward_weekly_cap PASSED [  8%]
+redteam/tests/test_guardrails.py::test_kill_switch_blocks_everything PASSED [ 11%]
+redteam/tests/test_guardrails.py::test_bad_amounts_blocked[-50.0-INVALID_AMOUNT] PASSED [ 13%]
+redteam/tests/test_guardrails.py::test_bad_amounts_blocked[0.0-INVALID_AMOUNT] PASSED [ 15%]
+redteam/tests/test_guardrails.py::test_bad_amounts_blocked[nan-INVALID_AMOUNT] PASSED [ 17%]
+redteam/tests/test_guardrails.py::test_bad_amounts_blocked[40.0-AMOUNT_MISMATCH] PASSED [ 20%]
+redteam/tests/test_guardrails.py::test_refund_needs_existing_case PASSED [ 22%]
+redteam/tests/test_guardrails.py::test_cannot_refund_same_order_twice PASSED [ 24%]
+redteam/tests/test_guardrails.py::test_agent_cannot_use_tools_outside_its_role PASSED [ 26%]
+redteam/tests/test_guardrails.py::test_unknown_tool_blocked PASSED       [ 28%]
+redteam/tests/test_guardrails.py::test_agent_cannot_approve_without_payout PASSED [ 31%]
+redteam/tests/test_guardrails.py::test_agent_cannot_override_escalated_case PASSED [ 33%]
+redteam/tests/test_guardrails.py::test_email_only_to_case_owner PASSED   [ 35%]
+redteam/tests/test_guardrails.py::test_every_tool_call_is_audited_and_chain_is_valid PASSED [ 37%]
+redteam/tests/test_guardrails.py::test_tampering_with_audit_log_is_detected PASSED [ 40%]
+redteam/tests/test_redteam.py::test_atk01_injection_on_high_value_order_is_escalated PASSED [ 42%]
+redteam/tests/test_redteam.py::test_atk01_injection_inflating_payout_is_blocked PASSED [ 44%]
+redteam/tests/test_redteam.py::test_atk02_agent_cannot_read_other_customer PASSED [ 46%]
+redteam/tests/test_redteam.py::test_atk02_refund_on_other_customers_order_blocked PASSED [ 48%]
+redteam/tests/test_redteam.py::test_atk02_api_body_cannot_spoof_customer PASSED [ 51%]
+redteam/tests/test_redteam.py::test_atk03_tampered_amount_denied[500.0] PASSED [ 53%]
+redteam/tests/test_redteam.py::test_atk03_tampered_amount_denied[-50.0] PASSED [ 55%]
+redteam/tests/test_redteam.py::test_atk04_salami_refunds_hit_weekly_cap PASSED [ 57%]
+redteam/tests/test_redteam.py::test_atk05_no_action_after_kill_switch PASSED [ 60%]
+redteam/tests/test_redteam.py::test_atk05_kill_switch_mid_workflow_revokes_case PASSED [ 62%]
+redteam/tests/test_rt_endpoints.py::test_all_guardrail_attacks_defended[rt-01] PASSED [ 64%]
+redteam/tests/test_rt_endpoints.py::test_all_guardrail_attacks_defended[rt-02] PASSED [ 66%]
+redteam/tests/test_rt_endpoints.py::test_all_guardrail_attacks_defended[rt-03] PASSED [ 68%]
+redteam/tests/test_rt_endpoints.py::test_all_guardrail_attacks_defended[rt-04] PASSED [ 71%]
+redteam/tests/test_rt_endpoints.py::test_all_guardrail_attacks_defended[rt-05] PASSED [ 73%]
+redteam/tests/test_rt_endpoints.py::test_all_guardrail_attacks_defended[rt-06] PASSED [ 75%]
+redteam/tests/test_rt_endpoints.py::test_all_six_attack_files_present PASSED [ 77%]
+redteam/tests/test_rt_endpoints.py::test_endpoint_writes_evidence_and_logs_run PASSED [ 80%]
+redteam/tests/test_rt_endpoints.py::test_sandbox_does_not_touch_live_data PASSED [ 82%]
+redteam/tests/test_rt_endpoints.py::test_endpoint_requires_role_and_known_test PASSED [ 84%]
+redteam/tests/test_workflow.py::test_autonomous_approval PASSED          [ 86%]
+redteam/tests/test_workflow.py::test_escalation_then_supervisor_approval PASSED [ 88%]
+redteam/tests/test_workflow.py::test_supervisor_cannot_approve_non_escalated_case PASSED [ 91%]
+redteam/tests/test_workflow.py::test_business_policy_denials PASSED      [ 93%]
+redteam/tests/test_workflow.py::test_api_end_to_end PASSED               [ 95%]
+redteam/tests/test_workflow.py::test_ui_is_served PASSED                 [ 97%]
+redteam/tests/test_workflow.py::test_api_role_checks PASSED              [100%]
+
+============================== 45 passed in 1.07s ==============================
