@@ -49,11 +49,12 @@
         <span id="themeIcon"></span>
       </button>
       <select id="role" style="display:none;" aria-label="Role selector">
-        <option value="customer-001-key">Customer · Alex Smith (CUST-001)</option>
-        <option value="customer-002-key">Customer · Elena Rostova (CUST-002)</option>
-        <option value="customer-003-key">Customer · Marcus Vance (CUST-003)</option>
-        <option value="supervisor-key">Supervisor (SUP-001)</option>
-        <option value="admin-key">Admin (ADMIN-001)</option>
+        <option value="customer-001-key">Customer · Alexandre Lopes (CUST-001)</option>
+        <option value="customer-002-key">Customer · Ariana Sun (CUST-002)</option>
+        <option value="customer-003-key">Customer · Suji Hancock (CUST-003)</option>
+        <option value="customer-004-key">Customer · Raphael Kusuma (CUST-004)</option>
+        <option value="supervisor-key">Jeromy Chang (SUP-001)</option>
+        <option value="admin-key">Jeromy Chang (ADMIN-001)</option>
       </select>
     </div>
   </div>
@@ -104,9 +105,10 @@
           <div class="form-group">
             <label for="sbCustomer">Customer Account</label>
             <select id="sbCustomer">
-              <option value="customer-001-key" data-id="CUST-001">Alex Smith (CUST-001)</option>
-              <option value="customer-002-key" data-id="CUST-002">Elena Rostova (CUST-002)</option>
-              <option value="customer-003-key" data-id="CUST-003">Marcus Vance (CUST-003)</option>
+              <option value="customer-001-key" data-id="CUST-001">Alexandre Lopes (CUST-001)</option>
+              <option value="customer-002-key" data-id="CUST-002">Ariana Sun (CUST-002)</option>
+              <option value="customer-003-key" data-id="CUST-003">Suji Hancock (CUST-003)</option>
+              <option value="customer-004-key" data-id="CUST-004">Raphael Kusuma (CUST-004)</option>
             </select>
           </div>
 
@@ -280,6 +282,18 @@
         </div>
         <form id="refundForm" class="form-vertical">
           <div class="form-group">
+            <label for="customerAccount">Signed in as (demo account)</label>
+            <select id="customerAccount" aria-label="Customer portal account">
+              <option value="customer-001-key" selected>Customer · Alexandre Lopes (CUST-001)</option>
+              <option value="customer-002-key">Customer · Ariana Sun (CUST-002)</option>
+              <option value="customer-003-key">Customer · Suji Hancock (CUST-003)</option>
+              <option value="customer-004-key">Customer · Raphael Kusuma (CUST-004)</option>
+              <option value="supervisor-key">Jeromy Chang (SUP-001)</option>
+              <option value="admin-key">Jeromy Chang (ADMIN-001)</option>
+            </select>
+            <p class="muted" style="margin:6px 0 0;font-size:12px">Pick a non-customer account to verify role rejection (403).</p>
+          </div>
+          <div class="form-group">
             <label for="orderSel">Order</label>
             <select id="orderSel" required></select>
           </div>
@@ -328,6 +342,18 @@
         <div class="panel-header">
           <h2 class="panel-title">Deterministic Guardrails Telemetry</h2>
         </div>
+        <div class="form-group">
+          <label for="supervisorAccount">Signed in as (demo account)</label>
+          <select id="supervisorAccount" aria-label="Supervisor portal account">
+            <option value="supervisor-key" selected>Jeromy Chang (SUP-001)</option>
+            <option value="customer-001-key">Customer · Alexandre Lopes (CUST-001)</option>
+            <option value="customer-002-key">Customer · Ariana Sun (CUST-002)</option>
+            <option value="customer-003-key">Customer · Suji Hancock (CUST-003)</option>
+            <option value="customer-004-key">Customer · Raphael Kusuma (CUST-004)</option>
+            <option value="admin-key">Jeromy Chang (ADMIN-001)</option>
+          </select>
+          <p class="muted" style="margin:6px 0 0;font-size:12px">Pick a customer/admin account to verify supervisor-only endpoints reject (403).</p>
+        </div>
         <div id="guardStatus" class="telemetry-metrics"></div>
         <div class="form-group" style="margin-top:16px">
           <label for="ksReason">Emergency Kill Switch Justification</label>
@@ -363,6 +389,18 @@
       <div class="workbench-panel">
         <div class="panel-header">
           <h2 class="panel-title">Upload &amp; Index Policy</h2>
+        </div>
+        <div class="form-group">
+          <label for="adminAccount">Signed in as (demo account)</label>
+          <select id="adminAccount" aria-label="Admin portal account">
+            <option value="admin-key" selected>Jeromy Chang (ADMIN-001)</option>
+            <option value="customer-001-key">Customer · Alexandre Lopes (CUST-001)</option>
+            <option value="customer-002-key">Customer · Ariana Sun (CUST-002)</option>
+            <option value="customer-003-key">Customer · Suji Hancock (CUST-003)</option>
+            <option value="customer-004-key">Customer · Raphael Kusuma (CUST-004)</option>
+            <option value="supervisor-key">Jeromy Chang (SUP-001)</option>
+          </select>
+          <p class="muted" style="margin:6px 0 12px;font-size:12px">Pick a customer/supervisor account to verify admin-only endpoints reject (403).</p>
         </div>
         <form id="policyForm" class="form-vertical">
           <div class="form-group">
