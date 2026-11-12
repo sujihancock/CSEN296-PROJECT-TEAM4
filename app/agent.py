@@ -167,7 +167,7 @@ class Orchestrator:
             step("IntakeAgent", f"Created case {case_id}.")
 
             customer = records.customer()
-            email.acknowledge(case_id, customer, amount)
+            ack = email.acknowledge(case_id, customer, amount)
             step("EmailAgent", f"Sent acknowledgement to {customer['email']}.")
 
             order = records.order(order_id)
@@ -178,7 +178,7 @@ class Orchestrator:
             step("RefundsAgent", f"LLM proposed {outcome['llm_proposal']['action']} "
                                  f"${outcome['llm_proposal']['amount']:.2f}; final status {outcome['status']}.")
 
-            email.notify_decision(case_id, customer, outcome["status"], outcome["reason"])
+            dec_email = email.notify_decision(case_id, customer, outcome["status"], outcome["reason"])
             step("EmailAgent", "Sent decision notification.")
 
             reporting.record(case_id, outcome["status"], outcome["reason"])
@@ -189,6 +189,8 @@ class Orchestrator:
                 "trace": trace,
                 "customer": customer,
                 "order": order,
+                "acknowledgement_email": ack,
+                "decision_email": dec_email,
                 **outcome,
             }
 
@@ -216,10 +218,11 @@ class Orchestrator:
         row = conn.execute(
             "SELECT c.email, c.name FROM cases k JOIN customers c ON c.id = k.customer_id WHERE k.id = ?", (case_id,)
         ).fetchone()
-        tools.insert_email(
+        email_res = tools.insert_email(
             conn, case_id, row["email"],
             f"Update on your refund request ({case_id}): {result['status']}",
             f"Hi {row['name']}, a supervisor reviewed your request. {result['reason']}",
             "DECISION",
         )
+        result["email"] = email_res
         return result

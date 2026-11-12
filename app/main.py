@@ -178,6 +178,68 @@ def my_emails(who: Identity = Depends(require("customer")), conn=Depends(db)):
 
 
 # --------------------------------------------------------------------------
+# Mock Email API (External Service Simulation)
+# --------------------------------------------------------------------------
+
+class EmailSendRequest(BaseModel):
+    case_id: str
+    to_email: str
+    subject: str
+    body: str
+    email_type: str = "GENERAL"
+
+
+@app.post("/api/email/send")
+def api_send_email(req: EmailSendRequest, who: Identity = Depends(identity), conn=Depends(db)):
+    """Mock Email API: send an email through the mock email service provider."""
+    # Tenant check: customers may only send to their own email on file
+    if who.role == "customer":
+        cust = conn.execute("SELECT email FROM customers WHERE id = ?", (who.user_id,)).fetchone()
+        if not cust or req.to_email != cust["email"]:
+            raise HTTPException(403, "Customers can only send emails to their own address on file")
+
+    from app.email_api import email_service
+    result = email_service.send_message(conn, req.case_id, req.to_email, req.subject, req.body, req.email_type)
+    audit.log_event(conn, who.user_id, "EMAIL_SENT", "INFO", {
+        "message_id": result.get("message_id"),
+        "to_email": req.to_email,
+        "case_id": req.case_id,
+        "email_type": req.email_type,
+    })
+    return result
+
+
+@app.get("/api/email/outbox")
+def api_email_outbox(
+    case_id: Optional[str] = None,
+    limit: int = 50,
+    who: Identity = Depends(identity),
+    conn=Depends(db),
+):
+    """Retrieve emails from the mock email provider's outbox."""
+    from app.email_api import email_service
+    to_filter = None
+    if who.role == "customer":
+        cust = conn.execute("SELECT email FROM customers WHERE id = ?", (who.user_id,)).fetchone()
+        to_filter = cust["email"] if cust else "none"
+    return email_service.get_outbox(conn, limit=limit, to_email=to_filter, case_id=case_id)
+
+
+@app.get("/api/email/messages/{message_id}")
+def api_get_email_message(message_id: str, who: Identity = Depends(identity), conn=Depends(db)):
+    """Retrieve a specific email message delivery status and payload."""
+    from app.email_api import email_service
+    msg = email_service.get_message(conn, message_id)
+    if not msg:
+        raise HTTPException(404, f"Message '{message_id}' not found")
+    if who.role == "customer":
+        cust = conn.execute("SELECT email FROM customers WHERE id = ?", (who.user_id,)).fetchone()
+        if not cust or msg["to"] != cust["email"]:
+            raise HTTPException(403, "Access denied to message")
+    return msg
+
+
+# --------------------------------------------------------------------------
 # Supervisor
 # --------------------------------------------------------------------------
 
@@ -279,4 +341,6 @@ def upload_policy(req: PolicyRequest, who: Identity = Depends(require("admin")),
 def reset(_who=Depends(require("admin"))):
     """Reset the demo database to its seed state."""
     init_db(seed=True, drop_existing=True)
+    from app.email_api import email_service
+    email_service.clear_outbox()
     return {"status": "reset"}

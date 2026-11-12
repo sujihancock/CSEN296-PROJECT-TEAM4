@@ -374,7 +374,8 @@ function renderPipelineResult(r) {
   const stepIntake = $("step-intake");
   if (stepIntake) stepIntake.className = "timeline-item " + (r.case_id ? "ok" : "warn");
   $("badge-case-id").textContent = r.case_id ? `#${r.case_id}` : "No Case";
-  $("desc-intake").textContent = r.case_id ? `Successfully opened refund case #${r.case_id} in transactional ledger.` : "Request blocked before case creation.";
+  const ackMsg = r.acknowledgement_email ? ` · Ack Email: ${r.acknowledgement_email.message_id || "sent"}` : "";
+  $("desc-intake").textContent = r.case_id ? `Successfully opened refund case #${r.case_id} in transactional ledger${ackMsg}.` : "Request blocked before case creation.";
 
   // Step 2: Records Specialist
   const stepRecords = $("step-records");
@@ -479,21 +480,22 @@ function renderPipelineResult(r) {
 
   // Step 6: Bank & Email
   const stepBank = $("step-bank");
+  const emailMsg = r.decision_email ? ` Decision email (${r.decision_email.message_id || "dispatched"}) sent.` : " Confirmation email sent.";
   if (isApproved) {
     if (stepBank) stepBank.className = "timeline-item ok";
     $("badge-bank").textContent = `Disbursed ${money(r.refunded_amount)}`;
     $("badge-bank").className = "chip success";
-    $("desc-bank").textContent = `Transferred ${money(r.refunded_amount)} to customer bank account. Confirmation email sent. New balance: ${money(r.new_bank_balance)}.`;
+    $("desc-bank").textContent = `Transferred ${money(r.refunded_amount)} to customer bank account.${emailMsg} New balance: ${money(r.new_bank_balance)}.`;
   } else if (isEscalated) {
     if (stepBank) stepBank.className = "timeline-item warn";
     $("badge-bank").textContent = "Held in Escrow";
     $("badge-bank").className = "chip warning";
-    $("desc-bank").textContent = "No funds disbursed. Payout held in escrow pending human supervisor review.";
+    $("desc-bank").textContent = `No funds disbursed. Payout held in escrow pending human supervisor review.${emailMsg}`;
   } else {
     if (stepBank) stepBank.className = "timeline-item bad";
     $("badge-bank").textContent = "No Payout";
     $("badge-bank").className = "chip danger";
-    $("desc-bank").textContent = "Zero funds transferred. Formal decision notification dispatched to customer inbox.";
+    $("desc-bank").textContent = `Zero funds transferred.${emailMsg}`;
   }
 
   // Outcome Banner
@@ -577,7 +579,10 @@ async function loadCustomer() {
     ], cases, "No refund claims filed yet."));
 
     fill("inbox", emails.length ? emails.map(e => el("div", { class: "email-item" },
-      el("div", { class: "email-subject" }, e.subject),
+      el("div", { class: "email-subject", style: "display:flex;justify-content:space-between;align-items:center;" },
+        el("span", {}, e.subject),
+        el("span", { class: "chip success font-mono", style: "font-size:10px;padding:2px 6px;" }, "DELIVERED")
+      ),
       el("div", { class: "email-body" }, e.body),
       el("div", { class: "email-meta font-mono" }, `${e.email_type} · ${e.sent_at}`)
     )) : el("div", { class: "empty", style: "padding:20px;text-align:center;color:var(--text-tertiary)" }, "No notifications received yet."));
@@ -750,9 +755,10 @@ async function runRt(t, replace) {
 async function loadAdmin() {
   const key = adminPortalKey();
   try {
-    const [p, vs] = await Promise.all([
+    const [p, vs, outbox] = await Promise.all([
       api("GET", "/policies", null, key),
-      api("GET", "/policies/vector-stats", null, key)
+      api("GET", "/policies/vector-stats", null, key),
+      api("GET", "/api/email/outbox", null, key).catch(() => [])
     ]);
     fill("policies", table([
       { label: "Policy ID", key: "id", mono: true },
@@ -762,6 +768,17 @@ async function loadAdmin() {
     ], p));
     if (vs && $("indexedCount")) {
       $("indexedCount").textContent = `${vs.indexed_vectors} vectors in '${vs.collection}'`;
+    }
+    if ($("emailOutbox") && outbox) {
+      fill("emailOutbox", table([
+        { label: "Message ID", key: "message_id", mono: true },
+        { label: "Case ID", key: "case_id", mono: true },
+        { label: "Recipient", key: "to" },
+        { label: "Subject", key: "subject" },
+        { label: "Type", key: "email_type", mono: true },
+        { label: "Status", render: m => el("span", { class: "chip success font-mono" }, m.status || "DELIVERED") },
+        { label: "Sent At", key: "sent_at", mono: true }
+      ], outbox, "No emails in outbox yet."));
     }
   } catch (e) {
     fill("policies", el("div", { class: "empty", style: "padding:20px;text-align:center;color:var(--text-tertiary)" }, e.message));
