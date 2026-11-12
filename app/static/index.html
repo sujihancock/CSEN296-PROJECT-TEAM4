@@ -3,403 +3,442 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ChangSupport.AI: Autonomous Multi-Agent Operations Console</title>
+  <title>ChangSupport.AI — Autonomous Multi-Agent Operations Console</title>
   <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body>
 
-<header>
-  <div class="header-bar">
-    <!-- Brand -->
-    <div class="brand-group">
-      <div class="brand-icon">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+<header class="app-header">
+  <div class="header-container">
+    <div class="header-brand">
+      <div class="brand-logo">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
         </svg>
       </div>
-      <div class="brand-titles">
-        <div class="brand-name">
-          ChangSupport.AI
-          <span class="badge b-info">v2.4 Pro</span>
-        </div>
-        <div class="brand-sub">Autonomous Multi-Agent Refund Operations</div>
+      <div class="brand-info">
+        <span class="brand-name">ChangSupport.AI</span>
+        <span class="brand-tagline">Multi-Agent Refund Console</span>
       </div>
     </div>
 
-    <!-- Telemetry Indicators -->
-    <div class="telemetry-row">
-      <span id="killPill" class="badge">
-        <span class="status-dot" style="background:var(--text-muted)"></span>Checking...
-      </span>
-      <span id="vectorPill" class="badge b-purple">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:2px"><circle cx="12" cy="12" r="3"/><path d="M12 3v6m0 6v6M3 12h6m6 0h6"/></svg>
-        ChromaDB Vector Store
-      </span>
+    <!-- System Telemetry Bar -->
+    <div class="header-telemetry">
+      <div id="killPill" class="telemetry-pill">
+        <span class="status-dot"></span>
+        <span class="telemetry-text">Checking authority...</span>
+      </div>
+      <div id="vectorPill" class="telemetry-pill purple">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 3v6m0 6v6M3 12h6m6 0h6"/></svg>
+        <span>ChromaDB Vector Store</span>
+      </div>
     </div>
 
-    <!-- Segmented Navigation Tabs -->
-    <div class="nav-tabs" role="tablist">
-      <button class="nav-tab active" data-tab="sandbox" role="tab">🧪 Interactive Sandbox</button>
-      <button class="nav-tab" data-tab="customer" role="tab">👤 Customer</button>
-      <button class="nav-tab" data-tab="supervisor" role="tab">🛡️ Supervisor</button>
-      <button class="nav-tab" data-tab="admin" role="tab">⚙️ Admin &amp; Vector DB</button>
-      <button class="nav-tab" data-tab="audit" role="tab">📜 Audit Log</button>
-    </div>
+    <!-- Navigation Tabs (No Emojis) -->
+    <nav class="nav-segmented" role="tablist">
+      <button class="nav-item active" data-tab="sandbox" role="tab">Interactive Sandbox</button>
+      <button class="nav-item" data-tab="customer" role="tab">Customer Portal</button>
+      <button class="nav-item" data-tab="supervisor" role="tab">Supervisor Queue</button>
+      <button class="nav-item" data-tab="admin" role="tab">Vector Policies</button>
+      <button class="nav-item" data-tab="audit" role="tab">Audit Trail</button>
+    </nav>
 
-    <!-- Role select for portal view -->
-    <select id="role" aria-label="Signed in as" style="width:auto;font-size:13px;display:none;">
-      <option value="customer-001-key">Customer · Alexandre Lopes (CUST-001)</option>
-      <option value="customer-002-key">Customer · Ariana Sun (CUST-002)</option>
-      <option value="customer-003-key">Customer · Suji Hancock (CUST-003)</option>
-      <option value="customer-004-key">Customer · Raphael Kusuma (CUST-004)</option>
-      <option value="supervisor-key">Jeromy Chang (SUP-001)</option>
-      <option value="admin-key">Jeromy Chang (ADMIN-001)</option>
-    </select>
+    <!-- Header Actions -->
+    <div class="header-controls">
+      <button id="themeToggleBtn" class="icon-button" title="Toggle Theme" aria-label="Toggle theme">
+        <span id="themeIcon"></span>
+      </button>
+      <select id="role" style="display:none;" aria-label="Role selector">
+        <option value="customer-001-key">Customer · Alex Smith (CUST-001)</option>
+        <option value="customer-002-key">Customer · Elena Rostova (CUST-002)</option>
+        <option value="customer-003-key">Customer · Marcus Vance (CUST-003)</option>
+        <option value="supervisor-key">Supervisor (SUP-001)</option>
+        <option value="admin-key">Admin (ADMIN-001)</option>
+      </select>
+    </div>
   </div>
 </header>
 
-<main>
+<main class="app-main">
   <!-- ======================================================== TAB 1: SANDBOX -->
   <div id="view-sandbox">
-    <!-- Presets Section -->
-    <section class="card">
-      <div class="card-header">
-        <h2>
-          <span>⚡ 1-Click Attack &amp; Workflow Scenarios</span>
-          <span class="sub-title">(Select a test scenario to demonstrate agent behavior)</span>
-        </h2>
+    <!-- Test Scenarios Toolbar -->
+    <div class="scenario-toolbar">
+      <div class="scenario-label">Benchmark Scenarios:</div>
+      <div class="scenario-buttons">
+        <button type="button" class="scenario-btn active" data-scenario="standard" onclick="applyPreset('standard')">
+          <span class="scenario-name">Standard Claim</span>
+          <span class="scenario-chip success">$45.00</span>
+        </button>
+        <button type="button" class="scenario-btn" data-scenario="high_value" onclick="applyPreset('high_value')">
+          <span class="scenario-name">High-Value Cap</span>
+          <span class="scenario-chip warning">$450.00</span>
+        </button>
+        <button type="button" class="scenario-btn" data-scenario="digital" onclick="applyPreset('digital')">
+          <span class="scenario-name">Digital Goods</span>
+          <span class="scenario-chip danger">$30.00</span>
+        </button>
+        <button type="button" class="scenario-btn" data-scenario="injection" onclick="applyPreset('injection')">
+          <span class="scenario-name">Prompt Injection</span>
+          <span class="scenario-chip purple">Attack</span>
+        </button>
+        <button type="button" class="scenario-btn" data-scenario="revocation" onclick="applyPreset('revocation')">
+          <span class="scenario-name">Kill Switch</span>
+          <span class="scenario-chip danger">Fail-Closed</span>
+        </button>
       </div>
-      <div class="presets-grid">
-        <div class="preset-card" onclick="applyPreset('standard')">
-          <div class="title"><span>Standard Refund</span><span class="badge b-ok">$45.00</span></div>
-          <div class="desc">Physical headphones with broken hinge. Within 30-day window.</div>
-          <div class="tag"><span class="badge b-ok">Autonomous Approval</span></div>
-        </div>
-        <div class="preset-card" onclick="applyPreset('high_value')">
-          <div class="title"><span>High-Value Cap</span><span class="badge b-warn">$450.00</span></div>
-          <div class="desc">4K Monitor damaged in transit. Exceeds $100 autonomous single cap.</div>
-          <div class="tag"><span class="badge b-warn">Guardrail Escalation</span></div>
-        </div>
-        <div class="preset-card" onclick="applyPreset('digital')">
-          <div class="title"><span>Digital Goods Policy</span><span class="badge b-bad">$30.00</span></div>
-          <div class="desc">Downloaded Prompt Engineering eBook claim. Non-refundable.</div>
-          <div class="tag"><span class="badge b-bad">Policy Denial (POL-003)</span></div>
-        </div>
-        <div class="preset-card" onclick="applyPreset('injection')">
-          <div class="title"><span>Prompt Injection</span><span class="badge b-purple">$450.00</span></div>
-          <div class="desc">Malicious system override attempt to disburse cash immediately.</div>
-          <div class="tag"><span class="badge b-warn">Model Fooled · Guardrail Defense</span></div>
-        </div>
-        <div class="preset-card" onclick="applyPreset('revocation')">
-          <div class="title"><span>Revoked Authority</span><span class="badge b-bad">Kill Switch</span></div>
-          <div class="desc">Supervisor emergency kill switch engaged. Strict fail-closed policy.</div>
-          <div class="tag"><span class="badge b-bad">Immediate Revocation</span></div>
-        </div>
+      <div id="scenarioDescription" class="scenario-description">
+        Standard refund claim: Physical headphones broken in shipping within 30 days. Autonomous approval expected.
       </div>
-    </section>
+    </div>
 
-    <div class="grid-2">
-      <!-- Submission Form -->
-      <section class="card">
-        <div class="card-header">
-          <h2>Submit Claim to Agent Pipeline</h2>
+    <!-- Workbench Layout -->
+    <div class="workbench-layout">
+      <!-- Left Column: Input Panel -->
+      <div class="workbench-panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Claim Parameters</h2>
         </div>
-        <form id="sandboxForm">
-          <label for="sbCustomer">Customer Account</label>
-          <select id="sbCustomer">
-            <option value="customer-001-key" data-id="CUST-001">Alexandre Lopes (CUST-001) · Balance: $1,250.00</option>
-            <option value="customer-002-key" data-id="CUST-002">Ariana Sun (CUST-002) · Balance: $840.00</option>
-            <option value="customer-003-key" data-id="CUST-003">Suji Hancock (CUST-003) · Balance: $2,100.00</option>
-          </select>
 
-          <label for="sbOrder">Order</label>
-          <select id="sbOrder" required></select>
+        <form id="sandboxForm" class="form-vertical">
+          <div class="form-group">
+            <label for="sbCustomer">Customer Account</label>
+            <select id="sbCustomer">
+              <option value="customer-001-key" data-id="CUST-001">Alex Smith (CUST-001)</option>
+              <option value="customer-002-key" data-id="CUST-002">Elena Rostova (CUST-002)</option>
+              <option value="customer-003-key" data-id="CUST-003">Marcus Vance (CUST-003)</option>
+            </select>
+          </div>
 
-          <label for="sbAmount">Amount (USD)</label>
-          <input id="sbAmount" type="number" step="0.01" required>
+          <!-- Customer Ledger Preview -->
+          <div class="customer-ledger-preview">
+            <div class="ledger-row">
+              <span class="ledger-label">Available Balance</span>
+              <span id="sbBankBalance" class="ledger-value font-mono">$1,250.00</span>
+            </div>
+            <div class="ledger-row sub">
+              <span class="ledger-label">Latest Notification</span>
+              <span id="sbLatestEmail" class="ledger-subtext">No notifications received yet</span>
+            </div>
+          </div>
 
-          <label for="sbReason">Refund Reason / Prompt Injection Input</label>
-          <textarea id="sbReason" required placeholder="Describe what went wrong or test a prompt attack"></textarea>
+          <div class="form-group">
+            <label for="sbOrder">Eligible Order</label>
+            <select id="sbOrder" required></select>
+          </div>
 
-          <div class="row">
-            <button class="primary" type="submit" id="sbSubmitBtn">
+          <div class="form-group">
+            <label for="sbAmount">Claim Amount (USD)</label>
+            <input id="sbAmount" type="number" step="0.01" required>
+          </div>
+
+          <div class="form-group">
+            <label for="sbReason">Claim Description / User Prompt</label>
+            <textarea id="sbReason" required placeholder="Describe issue or test an injection attack..."></textarea>
+          </div>
+
+          <div class="form-actions">
+            <button class="btn btn-primary" type="submit" id="sbSubmitBtn">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-              Run Agent Pipeline
+              Execute Agent Pipeline
             </button>
-            <button type="button" class="small" onclick="resetDemoData()">Reset All Demo Data</button>
+            <button type="button" class="btn btn-ghost" onclick="resetDemoData()">Reset Database</button>
           </div>
         </form>
+      </div>
 
-        <h3 style="margin-top:24px">Customer Account Live Snapshot</h3>
-        <div id="sbCustomerSnapshot" style="padding:14px;background:var(--surface-2);border-radius:var(--radius-md);border:1px solid var(--border)">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <span class="muted">Live Bank Balance:</span>
-            <span id="sbBankBalance" class="mono" style="font-size:15px;font-weight:700;color:var(--ok-text)">—</span>
+      <!-- Right Column: Real-Time Execution Trace Stream -->
+      <div class="workbench-panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Execution Lifecycle Stream</h2>
+          <div id="pipelineStatusBadge"></div>
+        </div>
+
+        <div id="pipelineEmpty" class="pipeline-placeholder">
+          <div class="placeholder-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
           </div>
-          <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
-            <span class="muted" style="display:block;margin-bottom:2px">Latest Received Email Notification:</span>
-            <span id="sbLatestEmail" class="mono muted" style="font-size:12px">—</span>
-          </div>
-        </div>
-      </section>
-
-      <!-- Multi-Agent Stepper -->
-      <section class="card">
-        <div class="card-header">
-          <h2>
-            <span>Agent Execution &amp; Lifecycle Stepper</span>
-            <span id="pipelineStatusBadge"></span>
-          </h2>
-        </div>
-        
-        <div id="pipelineEmpty" class="empty">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" style="margin:0 auto 8px;display:block;color:var(--text-dim)"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-          Select a preset scenario above or submit a claim to watch the multi-agent pipeline execute.
+          <div class="placeholder-title">Agent Pipeline Idle</div>
+          <div class="placeholder-text">Select a scenario above or submit claim parameters to execute the multi-agent decision pipeline.</div>
         </div>
 
-        <div id="pipelineWrap" class="pipeline-wrap" style="display:none">
-          <!-- Step 1: Intake -->
-          <div class="step-node" id="step-intake">
-            <div class="step-num">1</div>
-            <div class="step-content">
-              <div class="step-title"><span>Intake Specialist</span><span class="mono badge" id="badge-case-id">—</span></div>
-              <div class="step-desc" id="desc-intake">Opened new customer claim case.</div>
+        <div id="pipelineWrap" class="timeline-stream" style="display:none">
+          <!-- Step 1: Intake Specialist -->
+          <div class="timeline-item" id="step-intake">
+            <div class="timeline-indicator">
+              <span class="timeline-badge">1</span>
+            </div>
+            <div class="timeline-body">
+              <div class="timeline-header">
+                <span class="timeline-agent">Intake Specialist</span>
+                <span class="font-mono chip" id="badge-case-id">—</span>
+              </div>
+              <div class="timeline-summary" id="desc-intake">Opened new customer claim case.</div>
             </div>
           </div>
 
-          <!-- Step 2: Records -->
-          <div class="step-node" id="step-records">
-            <div class="step-num">2</div>
-            <div class="step-content">
-              <div class="step-title"><span>Records Specialist</span><span class="badge b-ok">Verified</span></div>
-              <div class="step-desc" id="desc-records">Verified tenant order isolation and customer purchase date.</div>
+          <!-- Step 2: Records Specialist -->
+          <div class="timeline-item" id="step-records">
+            <div class="timeline-indicator">
+              <span class="timeline-badge">2</span>
+            </div>
+            <div class="timeline-body">
+              <div class="timeline-header">
+                <span class="timeline-agent">Records Specialist</span>
+                <span class="chip success">Tenant Verified</span>
+              </div>
+              <div class="timeline-summary" id="desc-records">Verified customer identity, order ownership, and purchase date.</div>
             </div>
           </div>
 
-          <!-- Step 3: Vector DB RAG -->
-          <div class="step-node" id="step-rag">
-            <div class="step-num">3</div>
-            <div class="step-content">
-              <div class="step-title"><span>ChromaDB Vector Store (RAG)</span><span class="badge b-purple">Semantic Match</span></div>
-              <div class="step-desc" id="desc-rag">Queried policy embeddings in ChromaDB.</div>
-              <div class="step-data" id="data-rag" style="display:none"></div>
+          <!-- Step 3: ChromaDB Vector RAG -->
+          <div class="timeline-item" id="step-rag">
+            <div class="timeline-indicator">
+              <span class="timeline-badge">3</span>
+            </div>
+            <div class="timeline-body">
+              <div class="timeline-header">
+                <span class="timeline-agent">ChromaDB Vector Store (RAG)</span>
+                <span class="chip purple">Semantic Search</span>
+              </div>
+              <div class="timeline-summary" id="desc-rag">Queried refund policies via embeddings.</div>
+              <div class="timeline-expandable" id="data-rag" style="display:none"></div>
             </div>
           </div>
 
           <!-- Step 4: Refunds Specialist (LLM) -->
-          <div class="step-node" id="step-llm">
-            <div class="step-num">4</div>
-            <div class="step-content">
-              <div class="step-title"><span>Refunds Specialist (LLM)</span><span class="badge" id="badge-llm-action">—</span></div>
-              <div class="step-desc" id="desc-llm">Evaluated claim against policy.</div>
-              <div class="step-data" id="data-llm" style="display:none"></div>
+          <div class="timeline-item" id="step-llm">
+            <div class="timeline-indicator">
+              <span class="timeline-badge">4</span>
+            </div>
+            <div class="timeline-body">
+              <div class="timeline-header">
+                <span class="timeline-agent">Refunds Specialist (LLM)</span>
+                <span class="chip" id="badge-llm-action">—</span>
+              </div>
+              <div class="timeline-summary" id="desc-llm">Evaluated claim against retrieved policies.</div>
+              <div class="timeline-expandable" id="data-llm" style="display:none"></div>
             </div>
           </div>
 
-          <!-- Step 5: Policy Guardrails -->
-          <div class="step-node" id="step-guardrails">
-            <div class="step-num">5</div>
-            <div class="step-content">
-              <div class="step-title"><span>Policy Guardrails (Deterministic)</span><span class="badge" id="badge-guard-verdict">—</span></div>
-              <div class="step-desc" id="desc-guard">Enforced $100 single cap, $500 weekly limit, tenant isolation, &amp; kill switch.</div>
-              <div class="step-data" id="data-guard" style="display:none"></div>
+          <!-- Step 5: Deterministic Guardrails -->
+          <div class="timeline-item" id="step-guardrails">
+            <div class="timeline-indicator">
+              <span class="timeline-badge">5</span>
+            </div>
+            <div class="timeline-body">
+              <div class="timeline-header">
+                <span class="timeline-agent">Policy Guardrails (Deterministic)</span>
+                <span class="chip" id="badge-guard-verdict">—</span>
+              </div>
+              <div class="timeline-summary" id="desc-guard">Enforced $100 single limit, $500 weekly budget, and authority kill switch.</div>
+              <div class="timeline-expandable" id="data-guard" style="display:none"></div>
             </div>
           </div>
 
-          <!-- Step 6: Bank & Disbursement -->
-          <div class="step-node" id="step-bank">
-            <div class="step-num">6</div>
-            <div class="step-content">
-              <div class="step-title"><span>Mock Bank &amp; Email Dispatch</span><span class="badge" id="badge-bank">—</span></div>
-              <div class="step-desc" id="desc-bank">Disbursement status and customer notification.</div>
+          <!-- Step 6: Bank Disbursement & Email -->
+          <div class="timeline-item" id="step-bank">
+            <div class="timeline-indicator">
+              <span class="timeline-badge">6</span>
             </div>
-          </div>
-        </div>
-
-        <!-- Outcome Box -->
-        <div id="outcomeBox" class="outcome-box" style="display:none">
-          <div style="font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px" id="outcomeTitle"></div>
-          <div style="margin-top:6px;font-size:13px;line-height:1.45" id="outcomeDesc"></div>
-
-          <!-- Inline Supervisor Decision Card -->
-          <div id="inlineSupervisorCard" style="display:none;margin-top:14px;padding:14px;background:var(--surface);border-radius:var(--radius-md);border:1px solid var(--border)">
-            <div style="font-weight:600;font-size:13.5px;color:var(--text);display:flex;align-items:center;gap:6px">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-              Human Supervisor Review Queue Action
-            </div>
-            <div class="muted" style="font-size:12px;margin-top:3px">Claim exceeded autonomous policy limits. Authorize or reject as human supervisor:</div>
-            <input id="sbSupervisorComment" placeholder="Supervisor rationale (e.g. verified receipt &amp; physical inspection)" style="margin-top:10px">
-            <div class="row" style="margin-top:10px">
-              <button type="button" class="primary small" id="sbApproveBtn">Approve &amp; Disburse</button>
-              <button type="button" class="danger small" id="sbDenyBtn">Deny Claim</button>
+            <div class="timeline-body">
+              <div class="timeline-header">
+                <span class="timeline-agent">Settlement &amp; Notification</span>
+                <span class="chip" id="badge-bank">—</span>
+              </div>
+              <div class="timeline-summary" id="desc-bank">Disbursement status and customer notification dispatch.</div>
             </div>
           </div>
         </div>
 
-      </section>
+        <!-- Outcome Banner -->
+        <div id="outcomeBox" class="outcome-banner" style="display:none">
+          <div class="outcome-header" id="outcomeTitle"></div>
+          <div class="outcome-detail" id="outcomeDesc"></div>
+
+          <!-- Inline Supervisor Action for Escalated Cases -->
+          <div id="inlineSupervisorCard" class="supervisor-intercept-card" style="display:none">
+            <div class="intercept-title">Human Supervisor Escalation Queue</div>
+            <div class="intercept-prompt">This claim exceeded autonomous limits and requires human review:</div>
+            <input id="sbSupervisorComment" class="input-text" placeholder="Audit rationale (e.g. verified receipt and undamaged return)">
+            <div class="intercept-actions">
+              <button type="button" class="btn btn-sm btn-primary" id="sbApproveBtn">Authorize &amp; Disburse</button>
+              <button type="button" class="btn btn-sm btn-danger" id="sbDenyBtn">Reject Claim</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
   <!-- ======================================================== TAB 2: CUSTOMER -->
   <div id="view-customer" hidden>
-    <div class="grid-2">
-      <section class="card">
-        <div class="card-header">
-          <h2>Request a Refund</h2>
+    <div class="workbench-layout">
+      <div class="workbench-panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Submit Refund Claim</h2>
         </div>
-        <form id="refundForm">
-          <label for="orderSel">Select Order</label>
-          <select id="orderSel" required></select>
-          <label for="amount">Amount (USD)</label>
-          <input id="amount" type="number" step="0.01" required>
-          <label for="reason">Reason for Return / Refund</label>
-          <textarea id="reason" required placeholder="Describe what went wrong with the order"></textarea>
-          <div class="row">
-            <button class="primary" type="submit">Submit Refund Claim</button>
+        <form id="refundForm" class="form-vertical">
+          <div class="form-group">
+            <label for="orderSel">Order</label>
+            <select id="orderSel" required></select>
+          </div>
+          <div class="form-group">
+            <label for="amount">Amount (USD)</label>
+            <input id="amount" type="number" step="0.01" required>
+          </div>
+          <div class="form-group">
+            <label for="reason">Return Reason</label>
+            <textarea id="reason" required placeholder="Explain why you are requesting a refund"></textarea>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" type="submit">Submit Claim</button>
           </div>
         </form>
-        <div id="refundResult" style="margin-top:14px"></div>
-      </section>
+        <div id="refundResult" style="margin-top:16px"></div>
+      </div>
 
-      <section class="card">
-        <div class="card-header">
-          <h2>Customer Notification Inbox</h2>
+      <div class="workbench-panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Notification Inbox</h2>
         </div>
-        <div id="inbox" class="scroll"></div>
-      </section>
+        <div id="inbox" class="scrollable-list"></div>
+      </div>
     </div>
 
-    <section class="card" style="margin-top:20px">
-      <div class="card-header">
-        <h2>My Submitted Refund Cases</h2>
+    <div class="data-section">
+      <div class="panel-header">
+        <h2 class="panel-title">My Submitted Cases</h2>
       </div>
-      <div class="table-wrap" id="myCases"></div>
-    </section>
+      <div class="table-container" id="myCases"></div>
+    </div>
 
-    <section class="card" style="margin-top:20px">
-      <div class="card-header">
-        <h2>My Order History</h2>
+    <div class="data-section">
+      <div class="panel-header">
+        <h2 class="panel-title">My Order History</h2>
       </div>
-      <div class="table-wrap" id="myOrders"></div>
-    </section>
+      <div class="table-container" id="myOrders"></div>
+    </div>
   </div>
 
   <!-- ======================================================== TAB 3: SUPERVISOR -->
   <div id="view-supervisor" hidden>
-    <div class="grid-2">
-      <section class="card">
-        <div class="card-header">
-          <h2>Deterministic Guardrails Telemetry</h2>
+    <div class="workbench-layout">
+      <div class="workbench-panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Deterministic Guardrails Telemetry</h2>
         </div>
-        <div id="guardStatus"></div>
-        <label for="ksReason" style="margin-top:14px">Emergency Revocation Reason</label>
-        <input id="ksReason" placeholder="e.g. Audit anomaly detected in LLM proposals">
-        <div class="row">
-          <button id="ksBtn" class="danger">Activate Kill Switch</button>
+        <div id="guardStatus" class="telemetry-metrics"></div>
+        <div class="form-group" style="margin-top:16px">
+          <label for="ksReason">Emergency Kill Switch Justification</label>
+          <input id="ksReason" class="input-text" placeholder="Audit justification (e.g. anomalous prompt patterns detected)">
         </div>
-      </section>
+        <div class="form-actions">
+          <button id="ksBtn" class="btn btn-danger">Activate Kill Switch</button>
+        </div>
+      </div>
 
-      <section class="card">
-        <div class="card-header">
-          <h2>
-            <span>Escalated Cases Queue</span>
-            <span class="spacer"></span>
-            <button class="small" data-refresh="supervisor">Refresh Queue</button>
-          </h2>
+      <div class="workbench-panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Escalated Review Queue</h2>
+          <button class="btn btn-sm btn-ghost" data-refresh="supervisor">Refresh</button>
         </div>
-        <div id="escalated" class="scroll"></div>
-      </section>
+        <div id="escalated" class="scrollable-list"></div>
+      </div>
     </div>
 
-    <section class="card" style="margin-top:20px">
-      <div class="card-header">
-        <h2>
-          <span>Red-Team Attack Harness</span>
-          <span class="sub-title">(Runs in an isolated database sandbox without touching live data)</span>
-        </h2>
+    <div class="data-section">
+      <div class="panel-header">
+        <h2 class="panel-title">Red-Team Attack Harness</h2>
+        <span class="panel-subtitle">Executes in an isolated database sandbox without touching live production data</span>
       </div>
-      <div class="rt-grid" id="rtButtons"></div>
+      <div class="test-runner-toolbar" id="rtButtons"></div>
       <div id="rtResults"></div>
-    </section>
+    </div>
   </div>
 
   <!-- ======================================================== TAB 4: ADMIN -->
   <div id="view-admin" hidden>
-    <div class="grid-2">
-      <section class="card">
-        <div class="card-header">
-          <h2>Upload &amp; Index Refund Policy (ChromaDB)</h2>
+    <div class="workbench-layout">
+      <div class="workbench-panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Upload &amp; Index Policy</h2>
         </div>
-        <form id="policyForm">
-          <label for="pId">Policy Identifier</label>
-          <input id="pId" required placeholder="POL-005">
-          <label for="pTitle">Policy Title</label>
-          <input id="pTitle" required placeholder="e.g. Extended Electronics 60-Day Guarantee">
-          <label for="pContent">Full Policy Text (Embedded via all-MiniLM-L6-v2)</label>
-          <textarea id="pContent" required placeholder="Enter authoritative refund policy guidelines..."></textarea>
-          <label for="pTags">Search Tags</label>
-          <input id="pTags" placeholder="space-separated tags (e.g. electronics warranty damaged)">
-          <div class="row">
-            <button class="primary" type="submit">Index into ChromaDB Vector Store</button>
+        <form id="policyForm" class="form-vertical">
+          <div class="form-group">
+            <label for="pId">Policy ID</label>
+            <input id="pId" required placeholder="POL-005">
+          </div>
+          <div class="form-group">
+            <label for="pTitle">Title</label>
+            <input id="pTitle" required placeholder="e.g. Extended Holiday Return Policy">
+          </div>
+          <div class="form-group">
+            <label for="pContent">Policy Content (Embeddings generated via ONNX)</label>
+            <textarea id="pContent" required placeholder="Authoritative policy text..."></textarea>
+          </div>
+          <div class="form-group">
+            <label for="pTags">Search Keywords</label>
+            <input id="pTags" placeholder="space-separated search tags">
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" type="submit">Index into ChromaDB</button>
           </div>
         </form>
-      </section>
+      </div>
 
-      <section class="card">
-        <div class="card-header">
-          <h2>ChromaDB Vector Store Telemetry</h2>
+      <div class="workbench-panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Vector Store Status</h2>
         </div>
-        <div id="vectorStats" style="padding:14px;background:var(--surface-2);border-radius:var(--radius-md);border:1px solid var(--border)">
-          <div class="stat"><span class="muted">Engine</span><span class="mono">ChromaDB (Embedded ONNX)</span></div>
-          <div class="stat"><span class="muted">Embedding Model</span><span class="mono">all-MiniLM-L6-v2 (384-dim)</span></div>
-          <div class="stat"><span class="muted">Indexed Policy Vectors</span><span id="indexedCount" class="mono font-bold" style="color:var(--purple-text)">—</span></div>
+        <div id="vectorStats" class="telemetry-metrics">
+          <div class="metric-row"><span class="metric-label">Vector Engine</span><span class="font-mono">ChromaDB (Embedded ONNX)</span></div>
+          <div class="metric-row"><span class="metric-label">Embedding Model</span><span class="font-mono">all-MiniLM-L6-v2 (384d)</span></div>
+          <div class="metric-row"><span class="metric-label">Indexed Policy Chunks</span><span id="indexedCount" class="font-mono font-semibold">—</span></div>
         </div>
-
-        <h3 style="margin-top:20px">Database Reset Utility</h3>
-        <p class="muted" style="margin-bottom:12px;font-size:12.5px;line-height:1.45">
-          Restores customers, balances, orders, and refund policies to their initial seed state. Clears ChromaDB vector embeddings and re-seeds canonical policies.
-        </p>
-        <button id="resetBtn" class="danger">Reset All Demo Data</button>
-      </section>
+        <div class="danger-zone">
+          <div class="danger-title">Database Reset Utility</div>
+          <div class="danger-description">Restores customers, balances, orders, and seed policies. Clears ChromaDB vector embeddings.</div>
+          <button id="resetBtn" class="btn btn-danger">Reset All Demo Data</button>
+        </div>
+      </div>
     </div>
 
-    <section class="card" style="margin-top:20px">
-      <div class="card-header">
-        <h2>Currently Indexed Policies</h2>
+    <div class="data-section">
+      <div class="panel-header">
+        <h2 class="panel-title">Indexed Refund Policies</h2>
       </div>
-      <div class="table-wrap" id="policies"></div>
-    </section>
+      <div class="table-container" id="policies"></div>
+    </div>
   </div>
 
   <!-- ======================================================== TAB 5: AUDIT LOG -->
   <div id="view-audit" hidden>
-    <section class="card">
-      <div class="card-header">
-        <h2>
-          <span>Cryptographic SHA-256 Audit Trail</span>
-          <span id="chainPill" style="margin-left:8px"></span>
-          <span class="spacer"></span>
-          <button class="small" id="verifyBtn">Verify SHA-256 Chain</button>
-          <button class="small" id="auditRefresh">Refresh</button>
-        </h2>
+    <div class="data-section">
+      <div class="panel-header">
+        <h2 class="panel-title">Cryptographic SHA-256 Audit Trail</h2>
+        <div id="chainPill" class="chain-badge"></div>
+        <div class="panel-actions">
+          <button class="btn btn-sm btn-secondary" id="verifyBtn">Verify Hash Chain</button>
+          <button class="btn btn-sm btn-ghost" id="auditRefresh">Refresh</button>
+        </div>
       </div>
-      <div class="table-wrap scroll" id="audit"></div>
-    </section>
+      <div class="table-container scrollable-table" id="audit"></div>
+    </div>
   </div>
 
   <!-- Shared supervisor audit card -->
-  <section class="card" id="auditCard" hidden>
-    <div class="card-header">
-      <h2>
-        <span>Cryptographic Audit Log</span>
-        <span id="chainPillSupervisor" style="margin-left:8px"></span>
-        <span class="spacer"></span>
-        <button class="small" id="verifyBtnSupervisor">Verify Chain</button>
-        <button class="small" id="auditRefreshSupervisor">Refresh</button>
-      </h2>
+  <div class="data-section" id="auditCard" hidden>
+    <div class="panel-header">
+      <h2 class="panel-title">Cryptographic Audit Trail</h2>
+      <div id="chainPillSupervisor" class="chain-badge"></div>
+      <div class="panel-actions">
+        <button class="btn btn-sm btn-secondary" id="verifyBtnSupervisor">Verify Chain</button>
+        <button class="btn btn-sm btn-ghost" id="auditRefreshSupervisor">Refresh</button>
+      </div>
     </div>
-    <div class="table-wrap scroll" id="auditSupervisor"></div>
-  </section>
+    <div class="table-container scrollable-table" id="auditSupervisor"></div>
+  </div>
 </main>
 
 <div id="toast" role="status" aria-live="polite"></div>

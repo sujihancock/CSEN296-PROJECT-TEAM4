@@ -28,6 +28,7 @@ const badge = (s) => el("span", { class: `badge ${STATUS_CLASS[s] || ""}` }, s ?
 
 function toast(msg) {
   const t = $("toast");
+  if (!t) return;
   t.innerHTML = msg;
   t.classList.add("show");
   clearTimeout(toast.timer);
@@ -35,16 +36,19 @@ function toast(msg) {
 }
 
 function table(columns, rows, emptyText) {
-  if (!rows || !rows.length) return el("div", { class: "empty" }, emptyText || "Nothing here yet.");
+  if (!rows || !rows.length) return el("div", { class: "empty", style: "padding:20px;text-align:center;color:var(--text-tertiary)" }, emptyText || "Nothing here yet.");
   return el("table", {},
     el("thead", {}, el("tr", {}, columns.map(c => el("th", { class: c.num ? "num" : null }, c.label)))),
     el("tbody", {}, rows.map(r => el("tr", {}, columns.map(c => {
       const v = c.render ? c.render(r) : r[c.key];
-      return el("td", { class: [c.num ? "num" : "", c.mono ? "mono" : ""].join(" ").trim() || null }, v);
+      return el("td", { class: [c.num ? "num" : "", c.mono ? "mono font-mono" : ""].join(" ").trim() || null }, v);
     })))));
 }
 
-// ---------------------------------------------------------------- Theme Manager
+// ---------------------------------------------------------------- Theme Manager (SVG Icons, No Emojis)
+const SUN_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
+const MOON_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+
 function initTheme() {
   const saved = localStorage.getItem("changsupport-theme") || "dark";
   document.documentElement.setAttribute("data-theme", saved);
@@ -59,7 +63,7 @@ function toggleTheme() {
 }
 function updateThemeIcon(t) {
   const icon = $("themeIcon");
-  if (icon) icon.textContent = t === "dark" ? "☀️" : "🌙";
+  if (icon) icon.innerHTML = t === "dark" ? SUN_SVG : MOON_SVG;
 }
 const themeBtn = $("themeToggleBtn");
 if (themeBtn) themeBtn.addEventListener("click", toggleTheme);
@@ -92,9 +96,9 @@ async function busy(button, fn) {
 const role = () => apiKey.startsWith("customer") ? "customer" : apiKey.split("-")[0];
 
 // ---------------------------------------------------------------- Navigation
-document.querySelectorAll(".nav-tab").forEach(tab => {
+document.querySelectorAll(".nav-item, .nav-tab").forEach(tab => {
   tab.addEventListener("click", () => {
-    document.querySelectorAll(".nav-tab").forEach(t => t.classList.remove("active"));
+    document.querySelectorAll(".nav-item, .nav-tab").forEach(t => t.classList.remove("active"));
     tab.classList.add("active");
     currentTab = tab.dataset.tab;
     renderTab();
@@ -120,23 +124,28 @@ async function loadHealth() {
   const h = await fetch("/health").then(r => r.json()).catch(() => null);
   const pill = $("killPill");
   if (!h) {
-    pill.className = "badge b-bad";
-    pill.innerHTML = `<span class="status-dot" style="background:var(--bad)"></span>API Offline`;
+    if (pill) {
+      pill.className = "telemetry-pill revoked";
+      pill.innerHTML = `<span class="status-dot"></span><span>API Offline</span>`;
+    }
     return null;
   }
-  if (h.kill_switch_active) {
-    pill.className = "badge b-bad";
-    pill.innerHTML = `<span class="status-dot" style="background:var(--bad)"></span>Kill Switch: REVOKED`;
-  } else {
-    pill.className = "badge b-ok";
-    pill.innerHTML = `<span class="status-dot" style="background:var(--ok)"></span>Agent Authority: Active`;
+  if (pill) {
+    if (h.kill_switch_active) {
+      pill.className = "telemetry-pill revoked";
+      pill.innerHTML = `<span class="status-dot"></span><span>Kill Switch: REVOKED</span>`;
+    } else {
+      pill.className = "telemetry-pill";
+      pill.innerHTML = `<span class="status-dot"></span><span>Agent Authority: Active</span>`;
+    }
   }
 
   // Check vector stats
   try {
     const vs = await api("GET", "/policies/vector-stats", null, "admin-key");
-    if (vs && vs.indexed_vectors != null) {
-      $("vectorPill").innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:3px"><circle cx="12" cy="12" r="3"/><path d="M12 3v6m0 6v6M3 12h6m6 0h6"/></svg>ChromaDB: ${vs.indexed_vectors} vectors`;
+    const vPill = $("vectorPill");
+    if (vs && vs.indexed_vectors != null && vPill) {
+      vPill.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 3v6m0 6v6M3 12h6m6 0h6"/></svg><span>ChromaDB: ${vs.indexed_vectors} vectors</span>`;
       if ($("indexedCount")) $("indexedCount").textContent = `${vs.indexed_vectors} vectors in '${vs.collection}'`;
     }
   } catch (e) {}
@@ -149,7 +158,9 @@ let sandboxOrders = [];
 let currentCaseId = null;
 
 async function loadSandbox() {
-  const custKey = $("sbCustomer").value;
+  const custSel = $("sbCustomer");
+  if (!custSel) return;
+  const custKey = custSel.value;
   try {
     const [orders, customers, emails] = await Promise.all([
       api("GET", "/me/orders", null, custKey),
@@ -157,30 +168,37 @@ async function loadSandbox() {
       api("GET", "/me/emails", null, custKey),
     ]);
     sandboxOrders = orders;
-    const custId = $("sbCustomer").selectedOptions[0].dataset.id;
+    const custId = custSel.selectedOptions[0]?.dataset.id;
     const currentCust = customers.find(c => c.id === custId);
-    if (currentCust) {
+    if (currentCust && $("sbBankBalance")) {
       $("sbBankBalance").textContent = money(currentCust.bank_balance);
     }
-    if (emails && emails.length) {
-      $("sbLatestEmail").textContent = `${emails[0].subject} (${emails[0].email_type})`;
-    } else {
-      $("sbLatestEmail").textContent = "No notifications received yet.";
+    if ($("sbLatestEmail")) {
+      if (emails && emails.length) {
+        $("sbLatestEmail").textContent = `${emails[0].subject} (${emails[0].email_type})`;
+      } else {
+        $("sbLatestEmail").textContent = "No notifications received yet";
+      }
     }
 
     const sel = $("sbOrder");
-    const prev = sel.value;
-    sel.replaceChildren(...orders.map(o => el("option", { value: o.id },
-      `${o.id} · ${o.product_name} (${o.category}) · ${money(o.amount)}`)));
-    if (orders.some(o => o.id === prev)) sel.value = prev; else syncSandboxAmount();
+    if (sel) {
+      const prev = sel.value;
+      sel.replaceChildren(...orders.map(o => el("option", { value: o.id },
+        `${o.id} · ${o.product_name} (${o.category}) · ${money(o.amount)}`)));
+      if (orders.some(o => o.id === prev)) sel.value = prev; else syncSandboxAmount();
+    }
   } catch (e) {
     toast(e.message);
   }
 }
 
 function syncSandboxAmount() {
-  const o = sandboxOrders.find(x => x.id === $("sbOrder").value);
-  if (o) $("sbAmount").value = o.amount.toFixed(2);
+  const orderEl = $("sbOrder");
+  const amountEl = $("sbAmount");
+  if (!orderEl || !amountEl) return;
+  const o = sandboxOrders.find(x => x.id === orderEl.value);
+  if (o) amountEl.value = o.amount.toFixed(2);
 }
 const sbCustEl = $("sbCustomer");
 if (sbCustEl) sbCustEl.addEventListener("change", loadSandbox);
@@ -222,26 +240,42 @@ const PRESETS = {
   }
 };
 
+const PRESET_DESCRIPTIONS = {
+  standard: "Standard refund claim: Physical headphones broken in shipping within 30 days. Autonomous approval expected ($45.00).",
+  high_value: "High-value cap test: $450.00 claim exceeds $100.00 autonomous single limit. Intercepted for human supervisor review.",
+  digital: "Digital goods policy check: Non-refundable digital download claim ($30.00). Autonomous denial expected.",
+  injection: "Prompt injection attack: Adversarial payload attempting to override policy instructions and force unauthorized disbursement.",
+  revocation: "Kill switch revocation test: Autonomous agent authority revoked. Fails closed immediately without executing LLM.",
+};
+
 async function applyPreset(name) {
   const p = PRESETS[name];
   if (!p) return;
+
+  document.querySelectorAll(".scenario-btn").forEach(b => {
+    b.classList.toggle("active", b.dataset.scenario === name);
+  });
+  const descEl = $("scenarioDescription");
+  if (descEl && PRESET_DESCRIPTIONS[name]) {
+    descEl.textContent = PRESET_DESCRIPTIONS[name];
+  }
 
   if (p.triggerKillSwitch) {
     await api("POST", "/supervisor/kill-switch", { active: true, reason: "Preset test simulation" }, "supervisor-key");
     toast("Emergency kill-switch engaged for demo!");
     await loadHealth();
   } else {
-    // Ensure kill switch is off
     await api("POST", "/supervisor/kill-switch", { active: false, reason: "Reset" }, "supervisor-key");
     await loadHealth();
   }
 
-  $("sbCustomer").value = p.customerKey;
+  const custEl = $("sbCustomer");
+  if (custEl) custEl.value = p.customerKey;
   await loadSandbox();
-  if (p.orderId) $("sbOrder").value = p.orderId;
-  $("sbAmount").value = p.amount.toFixed(2);
-  $("sbReason").value = p.reason;
-  toast(`Loaded scenario: <b>${name}</b>. Click <b>Run Agent Pipeline</b> to execute.`);
+  if (p.orderId && $("sbOrder")) $("sbOrder").value = p.orderId;
+  if ($("sbAmount")) $("sbAmount").value = p.amount.toFixed(2);
+  if ($("sbReason")) $("sbReason").value = p.reason;
+  toast(`Loaded scenario: <b>${name}</b>. Click <b>Execute Agent Pipeline</b>.`);
 }
 window.applyPreset = applyPreset;
 
@@ -264,11 +298,12 @@ if (sbForm) {
       $("pipelineWrap").style.display = "flex";
       $("outcomeBox").style.display = "none";
       $("inlineSupervisorCard").style.display = "none";
+      fill("pipelineStatusBadge", el("span", { class: "chip info" }, "Executing Pipeline..."));
 
       // Set executing animation
       ["intake", "records", "rag", "llm", "guardrails", "bank"].forEach(s => {
         const node = $(`step-${s}`);
-        node.className = "step-node active";
+        if (node) node.className = "timeline-item active";
       });
 
       let res;
@@ -277,6 +312,7 @@ if (sbForm) {
         res = out.result;
       } catch (err) {
         toast(err.message);
+        fill("pipelineStatusBadge", el("span", { class: "chip danger" }, "Execution Failed"));
         return;
       }
 
@@ -290,31 +326,33 @@ if (sbForm) {
 function renderPipelineResult(r) {
   currentCaseId = r.case_id;
 
+  fill("pipelineStatusBadge", badge(r.status));
+
   // Step 1: Intake Specialist
   const stepIntake = $("step-intake");
-  stepIntake.className = "step-node " + (r.case_id ? "ok" : "warn");
+  if (stepIntake) stepIntake.className = "timeline-item " + (r.case_id ? "ok" : "warn");
   $("badge-case-id").textContent = r.case_id || "No Case";
   $("desc-intake").textContent = r.case_id ? `Successfully opened refund case #${r.case_id}.` : "Request blocked before case creation.";
 
   // Step 2: Records Specialist
   const stepRecords = $("step-records");
-  stepRecords.className = "step-node " + (r.order ? "ok" : "warn");
+  if (stepRecords) stepRecords.className = "timeline-item " + (r.order ? "ok" : "warn");
   if (r.order) {
-    $("desc-records").textContent = `Verified order ${r.order.id} (${r.order.product_name}, $${r.order.amount.toFixed(2)}). Purchased: ${r.order.purchase_date.slice(0,10)}. Tenant isolation confirmed.`;
+    $("desc-records").textContent = `Verified order ${r.order.id} (${r.order.product_name}, $${r.order.amount.toFixed(2)}). Purchased: ${r.order.purchase_date.slice(0, 10)}. Tenant isolation confirmed.`;
   }
 
   // Step 3: Vector RAG
   const stepRag = $("step-rag");
   const dataRag = $("data-rag");
   const policies = r.retrieved_policies || [];
-  stepRag.className = "step-node " + (policies.length ? "ok" : "warn");
+  if (stepRag) stepRag.className = "timeline-item " + (policies.length ? "ok" : "warn");
   if (policies.length) {
     $("desc-rag").textContent = `Retrieved ${policies.length} relevant policy chunk(s) via ChromaDB semantic vector search.`;
     dataRag.style.display = "block";
-    fill("data-rag", policies.map(p => el("div", { style: "margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)" },
+    fill("data-rag", policies.map(p => el("div", { style: "margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border-subtle)" },
       el("div", { style: "display:flex;align-items:center;justify-content:space-between;margin-bottom:2px" },
         el("span", {}, badge(p.id), el("b", { style: "margin-left:6px" }, p.title)),
-        p.score != null ? el("span", { class: "badge b-purple mono" }, `Similarity: ${(p.score * 100).toFixed(1)}%`) : null
+        p.score != null ? el("span", { class: "chip purple font-mono" }, `Similarity: ${(p.score * 100).toFixed(1)}%`) : null
       ),
       el("div", { class: "muted", style: "font-size:12px;margin-top:2px" }, p.content)
     )));
@@ -328,21 +366,25 @@ function renderPipelineResult(r) {
   const proposal = r.llm_proposal;
   if (proposal) {
     const isApproved = proposal.action === "APPROVE";
-    stepLlm.className = "step-node " + (isApproved ? "ok" : "bad");
+    if (stepLlm) stepLlm.className = "timeline-item " + (isApproved ? "ok" : "bad");
     $("badge-llm-action").textContent = `LLM: ${proposal.action} ($${proposal.amount.toFixed(2)})`;
-    $("badge-llm-action").className = `badge ${isApproved ? "b-ok" : "b-bad"}`;
+    $("badge-llm-action").className = `chip ${isApproved ? "success" : "danger"}`;
     $("desc-llm").textContent = proposal.rationale;
 
     dataLlm.style.display = "block";
     fill("data-llm",
       el("div", { style: "display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px" },
         proposal.followed_embedded_instructions
-          ? el("span", { class: "badge b-warn" }, "⚠️ Prompt Injection Warning: Followed User Prompt")
-          : el("span", { class: "badge b-ok" }, "Standard Policy Evaluation"),
-        el("span", { class: "muted mono", style: "font-size:12px" }, `Policies cited: ${(proposal.policies_considered || []).join(", ") || "None"}`)
+          ? el("span", { class: "chip warning" }, "Adversarial Injection Detected: Followed User Prompt")
+          : el("span", { class: "chip success" }, "Standard Policy Evaluation"),
+        el("span", { class: "muted font-mono", style: "font-size:12px" }, `Policies cited: ${(proposal.policies_considered || []).join(", ") || "None"}`)
       )
     );
   } else {
+    if (stepLlm) stepLlm.className = "timeline-item " + (r.status === "REVOKED" ? "bad" : "warn");
+    $("badge-llm-action").textContent = r.status === "REVOKED" ? "Bypassed (Revoked)" : "None";
+    $("badge-llm-action").className = "chip danger";
+    $("desc-llm").textContent = r.status === "REVOKED" ? "LLM execution bypassed because authority kill switch is engaged." : "No proposal generated.";
     dataLlm.style.display = "none";
   }
 
@@ -360,25 +402,25 @@ function renderPipelineResult(r) {
   $("badge-guard-verdict").className = `badge ${STATUS_CLASS[r.status] || ""}`;
 
   if (isEscalated) {
-    stepGuard.className = "step-node warn";
+    if (stepGuard) stepGuard.className = "timeline-item warn";
     $("desc-guard").textContent = `Intercepted by Guardrail: ${r.reason} (Exceeds $100 autonomous single cap or rolling weekly cap).`;
   } else if (isRevoked) {
-    stepGuard.className = "step-node bad";
+    if (stepGuard) stepGuard.className = "timeline-item bad";
     $("desc-guard").textContent = `Emergency Kill Switch Engaged: All agent payout authority revoked fail-closed.`;
   } else if (isBlocked) {
-    stepGuard.className = "step-node bad";
+    if (stepGuard) stepGuard.className = "timeline-item bad";
     $("desc-guard").textContent = `Blocked by deterministic guardrail: ${r.reason}`;
   } else if (isDenied) {
-    stepGuard.className = "step-node bad";
+    if (stepGuard) stepGuard.className = "timeline-item bad";
     $("desc-guard").textContent = `Denied under business policy: ${r.reason}`;
   } else {
-    stepGuard.className = "step-node ok";
+    if (stepGuard) stepGuard.className = "timeline-item ok";
     $("desc-guard").textContent = `All guardrails passed ($100 per-transaction cap, weekly cap, tenant isolation, active authority OK).`;
   }
 
   if (guard) {
     dataGuard.style.display = "block";
-    fill("data-guard", el("div", { class: "mono" }, `Guardrail Code: ${guard.code} · Action: ${guard.verdict}`));
+    fill("data-guard", el("div", { class: "font-mono" }, `Guardrail Code: ${guard.code} · Action: ${guard.verdict}`));
   } else {
     dataGuard.style.display = "none";
   }
@@ -386,26 +428,26 @@ function renderPipelineResult(r) {
   // Step 6: Bank & Email
   const stepBank = $("step-bank");
   if (isApproved) {
-    stepBank.className = "step-node ok";
+    if (stepBank) stepBank.className = "timeline-item ok";
     $("badge-bank").textContent = `Transferred ${money(r.refunded_amount)}`;
-    $("badge-bank").className = "badge b-ok";
+    $("badge-bank").className = "chip success";
     $("desc-bank").textContent = `Disbursed ${money(r.refunded_amount)} to customer bank account. Confirmation email sent. New live balance: ${money(r.new_bank_balance)}.`;
   } else if (isEscalated) {
-    stepBank.className = "step-node warn";
+    if (stepBank) stepBank.className = "timeline-item warn";
     $("badge-bank").textContent = "Held in Escrow";
-    $("badge-bank").className = "badge b-warn";
+    $("badge-bank").className = "chip warning";
     $("desc-bank").textContent = "No funds disbursed. Payout held in escrow pending human supervisor review.";
   } else {
-    stepBank.className = "step-node bad";
+    if (stepBank) stepBank.className = "timeline-item bad";
     $("badge-bank").textContent = "No Payout";
-    $("badge-bank").className = "badge b-bad";
+    $("badge-bank").className = "chip danger";
     $("desc-bank").textContent = "Zero funds transferred. Formal decision notification dispatched to customer inbox.";
   }
 
-  // Outcome Box
+  // Outcome Banner
   const outcomeBox = $("outcomeBox");
   outcomeBox.style.display = "block";
-  outcomeBox.className = `outcome-box ${r.status.toLowerCase()}`;
+  outcomeBox.className = `outcome-banner ${r.status.toLowerCase()}`;
   fill("outcomeTitle", badge(r.status), ` Claim Result: ${r.status}`);
   $("outcomeDesc").textContent = r.reason || "Evaluated by ChangSupport.AI Autonomous Multi-Agent Pipeline";
 
@@ -476,11 +518,11 @@ async function loadCustomer() {
     { label: "Resolution / Reason", render: r => r.decision_reason || "—" },
   ], cases, "No refund claims filed yet."));
 
-  fill("inbox", emails.length ? emails.map(e => el("div", { class: "email" },
-    el("div", { class: "subj" }, e.subject),
-    el("div", { class: "body" }, e.body),
-    el("div", { class: "muted mono", style: "font-size:12px;margin-top:4px" }, `${e.email_type} · ${e.sent_at}`)
-  )) : el("div", { class: "empty" }, "No notifications received yet."));
+  fill("inbox", emails.length ? emails.map(e => el("div", { class: "email-item" },
+    el("div", { class: "email-subject" }, e.subject),
+    el("div", { class: "email-body" }, e.body),
+    el("div", { class: "email-meta font-mono" }, `${e.email_type} · ${e.sent_at}`)
+  )) : el("div", { class: "empty", style: "padding:20px;text-align:center;color:var(--text-tertiary)" }, "No notifications received yet."));
 }
 
 function syncAmount() {
@@ -504,10 +546,10 @@ if (refundFormEl) {
         }
       });
       const r = out.result;
-      fill("refundResult", el("div", { class: `outcome-box ${r.status.toLowerCase()}`, style: "margin-top:14px" },
-        el("div", { style: "display:flex;align-items:center;gap:8px" }, badge(r.status), r.case_id ? el("span", { class: "mono" }, `#${r.case_id}`) : null),
+      fill("refundResult", el("div", { class: `outcome-banner ${r.status.toLowerCase()}`, style: "margin-top:14px" },
+        el("div", { style: "display:flex;align-items:center;gap:8px" }, badge(r.status), r.case_id ? el("span", { class: "font-mono" }, `#${r.case_id}`) : null),
         el("p", { style: "margin:8px 0 0;font-size:13px" }, r.reason || ""),
-        r.refunded_amount ? el("p", { style: "margin:4px 0 0;font-weight:600;color:var(--ok-text)" }, `Disbursed ${money(r.refunded_amount)}`) : null
+        r.refunded_amount ? el("p", { style: "margin:4px 0 0;font-weight:600;color:var(--semantic-success-text)" }, `Disbursed ${money(r.refunded_amount)}`) : null
       ));
       $("reason").value = "";
       await Promise.all([loadCustomer(), loadHealth()]);
@@ -523,36 +565,39 @@ async function loadSupervisor() {
   ]);
   const pct = Math.min(100, 100 * g.weekly_autonomous_total / g.max_weekly_autonomous_refunds);
   fill("guardStatus",
-    el("div", { class: "stat" }, el("span", {}, "Kill switch status"), badge(g.kill_switch_active ? "REVOKED" : "ALLOWED")),
-    el("div", { class: "stat" }, el("span", {}, "Per-transaction autonomous cap"), el("b", { class: "mono" }, money(g.max_autonomous_refund_per_tx))),
-    el("div", { class: "stat" }, el("span", {}, "Autonomous spend (rolling 7 days)"),
-      el("b", { class: "mono" }, `${money(g.weekly_autonomous_total)} / ${money(g.max_weekly_autonomous_refunds)}`)),
+    el("div", { class: "metric-row" }, el("span", { class: "metric-label" }, "Kill Switch Status"), badge(g.kill_switch_active ? "REVOKED" : "ALLOWED")),
+    el("div", { class: "metric-row" }, el("span", { class: "metric-label" }, "Per-Transaction Autonomous Cap"), el("b", { class: "font-mono" }, money(g.max_autonomous_refund_per_tx))),
+    el("div", { class: "metric-row" }, el("span", { class: "metric-label" }, "Autonomous Spend (Rolling 7d)"),
+      el("b", { class: "font-mono" }, `${money(g.weekly_autonomous_total)} / ${money(g.max_weekly_autonomous_refunds)}`)),
     el("div", { class: "meter", role: "img", "aria-label": `${pct.toFixed(0)}% of weekly cap used` },
       el("div", { style: `width:${pct}%` })));
 
   const btn = $("ksBtn");
   btn.dataset.active = g.kill_switch_active ? "1" : "";
   btn.textContent = g.kill_switch_active ? "Restore Agent Authority" : "Engage Kill Switch";
-  btn.className = g.kill_switch_active ? "primary" : "danger";
+  btn.className = g.kill_switch_active ? "btn btn-primary" : "btn btn-danger";
 
   fill("escalated", cases.length ? cases.map(c => {
-    const comment = el("input", { placeholder: "Supervisor comment for the record", "aria-label": `Comment for ${c.id}` });
+    const comment = el("input", { class: "input-text", style: "margin:8px 0", placeholder: "Supervisor audit rationale", "aria-label": `Comment for ${c.id}` });
     const decide = (approve) => (ev) => busy(ev.currentTarget, async () => {
       await api("POST", `/supervisor/cases/${encodeURIComponent(c.id)}/decision`,
         { approve, comment: comment.value }, "supervisor-key");
       toast(`Case <b>${c.id}</b> ${approve ? "approved" : "denied"}`);
       await Promise.all([loadSupervisor(), loadAudit()]);
     });
-    return el("div", { class: "case" },
-      el("p", {}, el("b", { class: "mono" }, c.id), " · Customer: ", el("span", { class: "mono" }, c.customer_id), " · Order: ", el("span", { class: "mono" }, c.order_id),
-        " · ", el("b", { class: "mono", style: "color:var(--text)" }, money(c.amount_requested))),
-      el("p", {}, el("span", { class: "muted" }, "Reason: "), c.reason),
-      el("p", {}, el("span", { class: "muted" }, "Guardrail Interception: "), c.decision_reason || "—"),
+    return el("div", { class: "case-card" },
+      el("div", { style: "display:flex;justify-content:space-between;align-items:center;margin-bottom:6px" },
+        el("span", { class: "font-mono font-semibold" }, c.id),
+        el("span", { class: "font-mono font-semibold", style: "color:var(--text-primary)" }, money(c.amount_requested))
+      ),
+      el("p", { style: "margin:4px 0;font-size:12.5px" }, el("span", { class: "muted" }, "Customer: "), el("span", { class: "font-mono" }, c.customer_id), " · Order: ", el("span", { class: "font-mono" }, c.order_id)),
+      el("p", { style: "margin:4px 0;font-size:12.5px" }, el("span", { class: "muted" }, "Reason: "), c.reason),
+      el("p", { style: "margin:4px 0;font-size:12.5px" }, el("span", { class: "muted" }, "Guardrail Interception: "), el("span", { class: "font-mono" }, c.decision_reason || "—")),
       comment,
-      el("div", { class: "row", style: "margin-top:10px" },
-        el("button", { class: "primary small", onclick: decide(true) }, "Approve & Disburse"),
-        el("button", { class: "danger small", onclick: decide(false) }, "Deny Claim")));
-  }) : el("div", { class: "empty" }, "No escalated cases currently waiting for human supervisor review."));
+      el("div", { style: "display:flex;gap:8px;margin-top:8px" },
+        el("button", { class: "btn btn-sm btn-primary", onclick: decide(true) }, "Approve & Disburse"),
+        el("button", { class: "btn btn-sm btn-danger", onclick: decide(false) }, "Deny Claim")));
+  }) : el("div", { class: "empty", style: "padding:24px;text-align:center;color:var(--text-tertiary)" }, "No escalated cases currently waiting for human supervisor review."));
 }
 
 const ksBtnEl = $("ksBtn");
@@ -570,13 +615,13 @@ let rtRendered = false;
 async function loadRedTeamButtons() {
   if (rtRendered) return;
   const tests = await api("GET", "/tests", null, "supervisor-key");
-  const runAll = el("button", { class: "primary small" }, "Run All Attacks");
+  const runAll = el("button", { class: "btn btn-sm btn-primary" }, "Run All Attacks");
   runAll.addEventListener("click", () => busy(runAll, async () => {
     fill("rtResults");
     for (const t of tests) await runRt(t);
   }));
   fill("rtButtons", runAll, tests.map(t => {
-    const b = el("button", { class: "small" }, t.toUpperCase());
+    const b = el("button", { class: "btn btn-sm btn-secondary font-mono" }, t.toUpperCase());
     b.addEventListener("click", () => busy(b, () => runRt(t, true)));
     return b;
   }));
@@ -586,9 +631,9 @@ async function loadRedTeamButtons() {
 async function runRt(t, replace) {
   const r = await api("POST", `/tests/${t}`, null, "supervisor-key");
   const s = r.summary;
-  const block = el("div", { style: "margin-top:20px;padding-top:16px;border-top:1px solid var(--border)" },
+  const block = el("div", { style: "margin-top:20px;padding-top:16px;border-top:1px solid var(--border-subtle)" },
     el("div", { style: "display:flex;align-items:center;justify-content:space-between;margin-bottom:10px" },
-      el("h3", { style: "margin:0" }, `${r.rt} · ${r.title}`),
+      el("h3", { style: "margin:0;font-size:14px;font-weight:600" }, `${r.rt} · ${r.title}`),
       el("div", { style: "display:flex;gap:6px;align-items:center" },
         s.guardrail_failures.length
           ? el("span", { class: "badge b-bad" }, `${s.guardrail_failures.length} guardrail failure(s)`)
@@ -598,15 +643,15 @@ async function runRt(t, replace) {
         el("span", { class: "muted", style: "font-size:12px" }, `${s.defended}/${s.attacks} defended`)
       )
     ),
-    el("div", { class: "table-wrap" }, table([
+    el("div", { class: "table-container" }, table([
       { label: "Attack ID", key: "id", mono: true },
       { label: "Scenario Description", key: "title" },
       { label: "Defense Layer", render: a => a.category === "guardrail" ? "Guardrail (Deterministic)" : "LLM Policy" },
       { label: "Outcome", render: a => badge(a.outcome) },
-      { label: "Final Status", render: a => [badge(a.final_status), a.final_code ? el("div", { class: "mono muted", style: "font-size:12px" }, a.final_code) : null] },
+      { label: "Final Status", render: a => [badge(a.final_status), a.final_code ? el("div", { class: "font-mono muted", style: "font-size:12px" }, a.final_code) : null] },
       { label: "Paid Out", render: a => money(a.money_paid_out), num: true },
     ], r.attacks)),
-    el("div", { class: "muted mono", style: "margin-top:8px;font-size:12px" }, `Evidence Path: ${r.evidence_path}`));
+    el("div", { class: "muted font-mono", style: "margin-top:8px;font-size:12px" }, `Evidence Path: ${r.evidence_path}`));
   if (replace) fill("rtResults", block); else $("rtResults").append(block);
   await loadAudit();
 }
@@ -657,12 +702,12 @@ async function loadAudit() {
     fill(containerId, table([
       { label: "#", key: "id", num: true },
       { label: "Timestamp (UTC)", key: "ts", mono: true },
-      { label: "Actor", key: "actor", render: r => el("span", { class: "mono" }, r.actor) },
+      { label: "Actor", key: "actor", render: r => el("span", { class: "font-mono" }, r.actor) },
       { label: "Action", key: "action", mono: true },
       { label: "Status", render: r => badge(r.status) },
-      { label: "Case ID", render: r => r.case_id ? el("span", { class: "mono" }, r.case_id) : "—", mono: true },
+      { label: "Case ID", render: r => r.case_id ? el("span", { class: "font-mono" }, r.case_id) : "—", mono: true },
       { label: "SHA-256 Hash", render: r => el("span", {
-          class: "mono muted copy-chip",
+          class: "font-mono muted copy-chip",
           title: `Full hash: ${r.hash} (click to copy)`,
           onclick: () => { navigator.clipboard.writeText(r.hash); toast("Copied hash to clipboard!"); }
         }, (r.hash || "").slice(0, 10) + "…")
