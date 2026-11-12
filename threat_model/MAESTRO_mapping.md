@@ -9,7 +9,7 @@ This threat model uses the CSA **MAESTRO** framework (Multi-Agent Environment, S
 ## Layer 1: Foundation Models
 | | |
 |---|---|
-| **Components** | Mock LLM in [app/llm.py](../app/llm.py), which proposes APPROVE/DENY and an amount |
+| **Components** | LLM in [app/llm.py](../app/llm.py): `MockLLM` (default, deliberately injectable) or `OllamaLLM` (local Qwen). Either one proposes APPROVE/DENY and an amount |
 | **Threats** | Direct prompt injection in the refund reason; indirect injection through retrieved text; hallucinated amounts; being talked out of business rules |
 | **Controls** | The model's output is only a *proposal*. The guardrail checks it against the case amount (`AMOUNT_MISMATCH`), the order total, the $100 cap and the $500 weekly cap. The model has no direct access to tools |
 | **Red team** | RT-01 (a–d), RT-06-a |
@@ -18,7 +18,7 @@ This threat model uses the CSA **MAESTRO** framework (Multi-Agent Environment, S
 ## Layer 2: Data Operations
 | | |
 |---|---|
-| **Components** | SQLite customer, order and case records; policy store and retriever ([app/retriever.py](../app/retriever.py)) |
+| **Components** | SQLite customer, order and case records; policy store, retriever and ChromaDB vector index ([app/retriever.py](../app/retriever.py), [app/vector_store.py](../app/vector_store.py)) |
 | **Threats** | Cross-customer reads and writes; data leaving the system by email; RAG poisoning through an uploaded policy; semantic evasion of retrieval |
 | **Controls** | Ownership checks on every records, case, bank and email tool call (`IDENTITY_PRIVILEGE_MISMATCH`); email can only go to the case owner's address on file; only admins can upload policies, and the uploader is recorded |
 | **Red team** | RT-02 (a–e), RT-06 (b, c) |
@@ -27,7 +27,7 @@ This threat model uses the CSA **MAESTRO** framework (Multi-Agent Environment, S
 ## Layer 3: Agent Frameworks
 | | |
 |---|---|
-| **Components** | Orchestrator and the five specialists ([app/agent.py](../app/agent.py)); tool registry ([app/tools.py](../app/tools.py)) |
+| **Components** | Orchestrator and the five specialists ([app/agent.py](../app/agent.py)); tool registry ([app/tools/](../app/tools/)) |
 | **Threats** | Goal hijacking; a specialist calling tools outside its role; an agent changing its own permissions; an agent bypassing a supervisor decision |
 | **Controls** | Per-agent tool allowlist, held in an immutable `MappingProxyType` of `frozenset`s (`PERMISSION_DENIED`); unknown tools are blocked (`UNKNOWN_TOOL`); agents can't set `APPROVED` without a payout or decide `ESCALATED` cases (`SUPERVISOR_DECISION_REQUIRED`); finalized cases can't be changed (`CASE_FINALIZED`) |
 | **Red team** | RT-01, RT-03 (e, f) |
