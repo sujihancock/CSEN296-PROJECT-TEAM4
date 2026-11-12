@@ -73,8 +73,16 @@ initTheme();
 let apiKey = "customer-001-key";
 let currentTab = "sandbox";
 
+function portalKey(selectId, fallback) {
+  const sel = $(selectId);
+  return (sel && sel.value) || fallback;
+}
+const customerPortalKey = () => portalKey("customerAccount", "customer-001-key");
+const supervisorPortalKey = () => portalKey("supervisorAccount", "supervisor-key");
+const adminPortalKey = () => portalKey("adminAccount", "admin-key");
+
 async function api(method, path, body, keyOverride) {
-  const key = keyOverride || apiKey;
+  const key = keyOverride || customerPortalKey();
   const res = await fetch(path, {
     method,
     headers: { "X-API-Key": key, ...(body ? { "Content-Type": "application/json" } : {}) },
@@ -83,7 +91,8 @@ async function api(method, path, body, keyOverride) {
   const data = await res.json().catch(() => null);
   if (!res.ok) {
     const d = data && data.detail;
-    throw new Error(typeof d === "string" ? d : (d && d.reason) || `Request failed (${res.status})`);
+    const msg = typeof d === "string" ? d : (d && d.reason) || `Request failed (${res.status})`;
+    throw new Error(res.status === 403 ? `Rejected (403): ${msg}` : msg);
   }
   return data;
 }
@@ -524,13 +533,13 @@ async function decideCurrentCase(approve) {
   });
 }
 
-async function resetDemoData() {
+async function resetDemoData(keyOverride) {
   if (!confirm("Reset all demo data? Customers, orders, policies, vector collections and balances will return to seed state.")) return;
-  await api("POST", "/admin/reset", null, "admin-key");
+  await api("POST", "/admin/reset", null, keyOverride || "admin-key");
   toast("Demo database and vector collections reset to initial state!");
-  $("pipelineEmpty").style.display = "block";
-  $("pipelineWrap").style.display = "none";
-  $("outcomeBox").style.display = "none";
+  if ($("pipelineEmpty")) $("pipelineEmpty").style.display = "block";
+  if ($("pipelineWrap")) $("pipelineWrap").style.display = "none";
+  if ($("outcomeBox")) $("outcomeBox").style.display = "none";
   await loadSandbox();
   await loadHealth();
 }
@@ -539,37 +548,47 @@ window.resetDemoData = resetDemoData;
 // ---------------------------------------------------------------- Customer Portal
 let orders = [];
 async function loadCustomer() {
-  const [o, cases, emails] = await Promise.all([
-    api("GET", "/me/orders"),
-    api("GET", "/me/cases"),
-    api("GET", "/me/emails")
-  ]);
-  orders = o;
-  const sel = $("orderSel"), prev = sel.value;
-  sel.replaceChildren(...orders.map(x => el("option", { value: x.id }, `${x.id} · ${x.product_name} · ${money(x.amount)}`)));
-  if (orders.some(x => x.id === prev)) sel.value = prev; else syncAmount();
+  const key = customerPortalKey();
+  try {
+    const [o, cases, emails] = await Promise.all([
+      api("GET", "/me/orders", null, key),
+      api("GET", "/me/cases", null, key),
+      api("GET", "/me/emails", null, key),
+    ]);
+    orders = o;
+    const sel = $("orderSel"), prev = sel.value;
+    sel.replaceChildren(...orders.map(x => el("option", { value: x.id }, `${x.id} · ${x.product_name} · ${money(x.amount)}`)));
+    if (orders.some(x => x.id === prev)) sel.value = prev; else syncAmount();
 
-  fill("myOrders", table([
-    { label: "Order ID", key: "id", mono: true },
-    { label: "Product Description", key: "product_name" },
-    { label: "Category", key: "category" },
-    { label: "Purchase Date", render: r => r.purchase_date.slice(0, 10), mono: true },
-    { label: "Total Paid", render: r => money(r.amount), num: true },
-  ], orders));
+    fill("myOrders", table([
+      { label: "Order ID", key: "id", mono: true },
+      { label: "Product Description", key: "product_name" },
+      { label: "Category", key: "category" },
+      { label: "Purchase Date", render: r => r.purchase_date.slice(0, 10) },
+      { label: "Total Paid", render: r => money(r.amount), num: true },
+    ], orders));
 
-  fill("myCases", table([
-    { label: "Case ID", key: "id", mono: true },
-    { label: "Order ID", key: "order_id", mono: true },
-    { label: "Amount", render: r => money(r.amount_requested), num: true },
-    { label: "Status", render: r => badge(r.status) },
-    { label: "Resolution / Reason", render: r => r.decision_reason || "—" },
-  ], cases, "No refund claims filed yet."));
+    fill("myCases", table([
+      { label: "Case ID", key: "id", mono: true },
+      { label: "Order", key: "order_id", mono: true },
+      { label: "Amount", render: r => money(r.amount_requested), num: true },
+      { label: "Status", render: r => badge(r.status) },
+      { label: "Resolution / Reason", render: r => r.decision_reason || "—" },
+    ], cases, "No refund claims filed yet."));
 
-  fill("inbox", emails.length ? emails.map(e => el("div", { class: "email-item" },
-    el("div", { class: "email-subject" }, e.subject),
-    el("div", { class: "email-body" }, e.body),
-    el("div", { class: "email-meta font-mono" }, `${e.email_type} · ${e.sent_at}`)
-  )) : el("div", { class: "empty" }, "No notifications received yet."));
+    fill("inbox", emails.length ? emails.map(e => el("div", { class: "email-item" },
+      el("div", { class: "email-subject" }, e.subject),
+      el("div", { class: "email-body" }, e.body),
+      el("div", { class: "email-meta font-mono" }, `${e.email_type} · ${e.sent_at}`)
+    )) : el("div", { class: "empty", style: "padding:20px;text-align:center;color:var(--text-tertiary)" }, "No notifications received yet."));
+  } catch (e) {
+    orders = [];
+    if ($("orderSel")) $("orderSel").replaceChildren();
+    fill("myOrders", el("div", { class: "empty", style: "padding:20px;text-align:center;color:var(--text-tertiary)" }, e.message));
+    fill("myCases", el("div", { class: "empty", style: "padding:20px;text-align:center;color:var(--text-tertiary)" }, e.message));
+    fill("inbox", el("div", { class: "empty", style: "padding:20px;text-align:center;color:var(--text-tertiary)" }, e.message));
+    toast(e.message);
+  }
 }
 
 function syncAmount() {
@@ -578,6 +597,9 @@ function syncAmount() {
 }
 const orderSelEl = $("orderSel");
 if (orderSelEl) orderSelEl.addEventListener("change", syncAmount);
+
+const customerAccountEl = $("customerAccount");
+if (customerAccountEl) customerAccountEl.addEventListener("change", () => loadCustomer());
 
 const refundFormEl = $("refundForm");
 if (refundFormEl) {
@@ -591,7 +613,7 @@ if (refundFormEl) {
           amount: parseFloat($("amount").value),
           reason: $("reason").value
         }
-      });
+      }, customerPortalKey());
       const r = out.result;
       fill("refundResult", el("div", { class: `outcome-banner ${r.status.toLowerCase()}`, style: "margin-top:14px" },
         el("div", { style: "display:flex;align-items:center;gap:8px" }, badge(r.status), r.case_id ? el("span", { class: "font-mono" }, `#${r.case_id}`) : null),
@@ -606,52 +628,69 @@ if (refundFormEl) {
 
 // ---------------------------------------------------------------- Supervisor Portal
 async function loadSupervisor() {
-  const [g, cases] = await Promise.all([
-    api("GET", "/guardrails/status", null, "supervisor-key"),
-    api("GET", "/supervisor/cases?status=ESCALATED", null, "supervisor-key")
-  ]);
-  const pct = Math.min(100, 100 * g.weekly_autonomous_total / g.max_weekly_autonomous_refunds);
-  fill("guardStatus",
-    el("div", { class: "metric-row" }, el("span", { class: "metric-label" }, "Agent Kill Switch"), badge(g.kill_switch_active ? "REVOKED" : "ALLOWED")),
-    el("div", { class: "metric-row" }, el("span", { class: "metric-label" }, "Per-Transaction Autonomous Cap"), el("b", { class: "font-mono" }, money(g.max_autonomous_refund_per_tx))),
-    el("div", { class: "metric-row" }, el("span", { class: "metric-label" }, "Autonomous Spend (Rolling 7d)"),
-      el("b", { class: "font-mono" }, `${money(g.weekly_autonomous_total)} / ${money(g.max_weekly_autonomous_refunds)}`)),
-    el("div", { class: "meter", role: "img", "aria-label": `${pct.toFixed(0)}% of weekly cap used` },
-      el("div", { style: `width:${pct}%` })));
+  const key = supervisorPortalKey();
+  try {
+    const [g, cases] = await Promise.all([
+      api("GET", "/guardrails/status", null, key),
+      api("GET", "/supervisor/cases?status=ESCALATED", null, key)
+    ]);
+    const pct = Math.min(100, 100 * g.weekly_autonomous_total / g.max_weekly_autonomous_refunds);
+    fill("guardStatus",
+      el("div", { class: "metric-row" }, el("span", { class: "metric-label" }, "Kill Switch Status"), badge(g.kill_switch_active ? "REVOKED" : "ALLOWED")),
+      el("div", { class: "metric-row" }, el("span", { class: "metric-label" }, "Per-Transaction Autonomous Cap"), el("b", { class: "font-mono" }, money(g.max_autonomous_refund_per_tx))),
+      el("div", { class: "metric-row" }, el("span", { class: "metric-label" }, "Autonomous Spend (Rolling 7d)"),
+        el("b", { class: "font-mono" }, `${money(g.weekly_autonomous_total)} / ${money(g.max_weekly_autonomous_refunds)}`)),
+      el("div", { class: "meter", role: "img", "aria-label": `${pct.toFixed(0)}% of weekly cap used` },
+        el("div", { style: `width:${pct}%` })));
 
-  const btn = $("ksBtn");
-  btn.dataset.active = g.kill_switch_active ? "1" : "";
-  btn.textContent = g.kill_switch_active ? "Restore Agent Authority" : "Engage Kill Switch";
-  btn.className = g.kill_switch_active ? "btn btn-primary" : "btn btn-danger";
+    const btn = $("ksBtn");
+    btn.dataset.active = g.kill_switch_active ? "1" : "";
+    btn.textContent = g.kill_switch_active ? "Restore Agent Authority" : "Engage Kill Switch";
+    btn.className = g.kill_switch_active ? "btn btn-primary" : "btn btn-danger";
 
-  fill("escalated", cases.length ? cases.map(c => {
-    const comment = el("input", { class: "input-text", style: "margin:8px 0", placeholder: "Supervisor audit rationale", "aria-label": `Comment for ${c.id}` });
-    const decide = (approve) => (ev) => busy(ev.currentTarget, async () => {
-      await api("POST", `/supervisor/cases/${encodeURIComponent(c.id)}/decision`,
-        { approve, comment: comment.value }, "supervisor-key");
-      toast(`Case <b>${c.id}</b> ${approve ? "approved" : "denied"}`);
-      await Promise.all([loadSupervisor(), loadAudit()]);
-    });
-    return el("div", { class: "case-card" },
-      el("div", { style: "display:flex;justify-content:space-between;align-items:center;margin-bottom:6px" },
-        el("span", { class: "font-mono font-semibold" }, c.id),
-        el("span", { class: "font-mono font-semibold", style: "color:var(--text-primary)" }, money(c.amount_requested))
-      ),
-      el("p", { style: "margin:4px 0;font-size:12.5px" }, el("span", { class: "muted" }, "Customer: "), el("span", { class: "font-mono" }, c.customer_id), " · Order: ", el("span", { class: "font-mono" }, c.order_id)),
-      el("p", { style: "margin:4px 0;font-size:12.5px" }, el("span", { class: "muted" }, "Reason: "), c.reason),
-      el("p", { style: "margin:4px 0;font-size:12.5px" }, el("span", { class: "muted" }, "Guardrail Interception: "), el("span", { class: "font-mono" }, c.decision_reason || "—")),
-      comment,
-      el("div", { style: "display:flex;gap:8px;margin-top:8px" },
-        el("button", { class: "btn btn-sm btn-primary", onclick: decide(true) }, "Approve & Disburse"),
-        el("button", { class: "btn btn-sm btn-danger", onclick: decide(false) }, "Deny Claim")));
-  }) : el("div", { class: "empty" }, "No escalated cases currently waiting for human supervisor review."));
+    fill("escalated", cases.length ? cases.map(c => {
+      const comment = el("input", { class: "input-text", style: "margin:8px 0", placeholder: "Supervisor audit rationale", "aria-label": `Comment for ${c.id}` });
+      const decide = (approve) => (ev) => busy(ev.currentTarget, async () => {
+        await api("POST", `/supervisor/cases/${encodeURIComponent(c.id)}/decision`,
+          { approve, comment: comment.value }, supervisorPortalKey());
+        toast(`Case <b>${c.id}</b> ${approve ? "approved" : "denied"}`);
+        await Promise.all([loadSupervisor(), loadAudit()]);
+      });
+      return el("div", { class: "case-card" },
+        el("div", { style: "display:flex;justify-content:space-between;align-items:center;margin-bottom:6px" },
+          el("span", { class: "font-mono font-semibold" }, c.id),
+          el("span", { class: "font-mono font-semibold", style: "color:var(--text-primary)" }, money(c.amount_requested))
+        ),
+        el("p", { style: "margin:4px 0;font-size:12.5px" }, el("span", { class: "muted" }, "Customer: "), el("span", { class: "font-mono" }, c.customer_id), " · Order: ", el("span", { class: "font-mono" }, c.order_id)),
+        el("p", { style: "margin:4px 0;font-size:12.5px" }, el("span", { class: "muted" }, "Reason: "), c.reason),
+        el("p", { style: "margin:4px 0;font-size:12.5px" }, el("span", { class: "muted" }, "Guardrail Interception: "), el("span", { class: "font-mono" }, c.decision_reason || "—")),
+        comment,
+        el("div", { style: "display:flex;gap:8px;margin-top:8px" },
+          el("button", { class: "btn btn-sm btn-primary", onclick: decide(true) }, "Approve & Disburse"),
+          el("button", { class: "btn btn-sm btn-danger", onclick: decide(false) }, "Deny Claim")));
+    }) : el("div", { class: "empty", style: "padding:24px;text-align:center;color:var(--text-tertiary)" }, "No escalated cases currently waiting for human supervisor review."));
+  } catch (e) {
+    fill("guardStatus", el("div", { class: "metric-row" }, el("span", { class: "metric-label" }, "Access"), el("span", {}, e.message)));
+    fill("escalated", el("div", { class: "empty", style: "padding:24px;text-align:center;color:var(--text-tertiary)" }, e.message));
+    toast(e.message);
+  }
+}
+
+const supervisorAccountEl = $("supervisorAccount");
+if (supervisorAccountEl) {
+  supervisorAccountEl.addEventListener("change", () => {
+    rtRendered = false;
+    loadSupervisor();
+    loadRedTeamButtons();
+    loadAudit();
+  });
 }
 
 const ksBtnEl = $("ksBtn");
 if (ksBtnEl) {
   ksBtnEl.addEventListener("click", (ev) => busy(ev.currentTarget, async () => {
     const active = !ev.currentTarget.dataset.active;
-    await api("POST", "/supervisor/kill-switch", { active, reason: $("ksReason").value }, "supervisor-key");
+    await api("POST", "/supervisor/kill-switch", { active, reason: $("ksReason").value }, supervisorPortalKey());
     $("ksReason").value = "";
     toast(active ? "Kill switch engaged: All agent authority revoked fail-closed." : "Agent authority restored.");
     await Promise.all([loadSupervisor(), loadHealth(), loadAudit()]);
@@ -661,22 +700,26 @@ if (ksBtnEl) {
 let rtRendered = false;
 async function loadRedTeamButtons() {
   if (rtRendered) return;
-  const tests = await api("GET", "/tests", null, "supervisor-key");
-  const runAll = el("button", { class: "btn btn-sm btn-primary" }, "Run All Attacks");
-  runAll.addEventListener("click", () => busy(runAll, async () => {
-    fill("rtResults");
-    for (const t of tests) await runRt(t);
-  }));
-  fill("rtButtons", runAll, tests.map(t => {
-    const b = el("button", { class: "btn btn-sm btn-secondary font-mono" }, t.toUpperCase());
-    b.addEventListener("click", () => busy(b, () => runRt(t, true)));
-    return b;
-  }));
-  rtRendered = true;
+  try {
+    const tests = await api("GET", "/tests", null, supervisorPortalKey());
+    const runAll = el("button", { class: "btn btn-sm btn-primary" }, "Run All Attacks");
+    runAll.addEventListener("click", () => busy(runAll, async () => {
+      fill("rtResults");
+      for (const t of tests) await runRt(t);
+    }));
+    fill("rtButtons", runAll, tests.map(t => {
+      const b = el("button", { class: "btn btn-sm btn-secondary font-mono" }, t.toUpperCase());
+      b.addEventListener("click", () => busy(b, () => runRt(t, true)));
+      return b;
+    }));
+    rtRendered = true;
+  } catch (e) {
+    fill("rtButtons", el("div", { class: "empty", style: "padding:12px;color:var(--text-tertiary)" }, e.message));
+  }
 }
 
 async function runRt(t, replace) {
-  const r = await api("POST", `/tests/${t}`, null, "supervisor-key");
+  const r = await api("POST", `/tests/${t}`, null, supervisorPortalKey());
   const s = r.summary;
   const block = el("div", { style: "margin-top:20px;padding-top:16px;border-top:1px solid var(--border-subtle)" },
     el("div", { style: "display:flex;align-items:center;justify-content:space-between;margin-bottom:10px" },
@@ -705,20 +748,30 @@ async function runRt(t, replace) {
 
 // ---------------------------------------------------------------- Admin & Vector DB
 async function loadAdmin() {
-  const [p, vs] = await Promise.all([
-    api("GET", "/policies", null, "admin-key"),
-    api("GET", "/policies/vector-stats", null, "admin-key")
-  ]);
-  fill("policies", table([
-    { label: "Policy ID", key: "id", mono: true },
-    { label: "Policy Title", key: "title" },
-    { label: "Policy Content", key: "content" },
-    { label: "Indexed By", key: "uploaded_by", mono: true },
-  ], p));
-  if (vs && $("indexedCount")) {
-    $("indexedCount").textContent = `${vs.indexed_vectors} vectors in '${vs.collection}'`;
+  const key = adminPortalKey();
+  try {
+    const [p, vs] = await Promise.all([
+      api("GET", "/policies", null, key),
+      api("GET", "/policies/vector-stats", null, key)
+    ]);
+    fill("policies", table([
+      { label: "Policy ID", key: "id", mono: true },
+      { label: "Policy Title", key: "title" },
+      { label: "Policy Content", key: "content" },
+      { label: "Indexed By", key: "uploaded_by", mono: true },
+    ], p));
+    if (vs && $("indexedCount")) {
+      $("indexedCount").textContent = `${vs.indexed_vectors} vectors in '${vs.collection}'`;
+    }
+  } catch (e) {
+    fill("policies", el("div", { class: "empty", style: "padding:20px;text-align:center;color:var(--text-tertiary)" }, e.message));
+    if ($("indexedCount")) $("indexedCount").textContent = "—";
+    toast(e.message);
   }
 }
+
+const adminAccountEl = $("adminAccount");
+if (adminAccountEl) adminAccountEl.addEventListener("change", () => loadAdmin());
 
 const policyFormEl = $("policyForm");
 if (policyFormEl) {
@@ -730,7 +783,7 @@ if (policyFormEl) {
         title: $("pTitle").value,
         content: $("pContent").value,
         tags: $("pTags").value
-      }, "admin-key");
+      }, adminPortalKey());
       ev.target.reset();
       toast("Policy successfully indexed into ChromaDB and SQLite!");
       await Promise.all([loadAdmin(), loadAudit(), loadHealth()]);
@@ -739,11 +792,30 @@ if (policyFormEl) {
 }
 
 const resetBtnEl = $("resetBtn");
-if (resetBtnEl) resetBtnEl.addEventListener("click", resetDemoData);
+if (resetBtnEl) {
+  resetBtnEl.addEventListener("click", (ev) => busy(ev.currentTarget, async () => {
+    await resetDemoData(adminPortalKey());
+    await loadAdmin();
+  }));
+}
+
+function auditReaderKey() {
+  if (currentTab === "admin") return adminPortalKey();
+  if (currentTab === "supervisor") return supervisorPortalKey();
+  // Audit tab / sandbox helpers: prefer supervisor, fall back to admin
+  return supervisorPortalKey();
+}
 
 // ---------------------------------------------------------------- Cryptographic Audit Log
 async function loadAudit() {
-  const logs = await api("GET", "/logs", null, "supervisor-key");
+  let logs;
+  try {
+    logs = await api("GET", "/logs", null, auditReaderKey());
+  } catch (e) {
+    fill("audit", el("div", { class: "empty", style: "padding:20px;text-align:center;color:var(--text-tertiary)" }, e.message));
+    fill("auditSupervisor", el("div", { class: "empty", style: "padding:20px;text-align:center;color:var(--text-tertiary)" }, e.message));
+    return;
+  }
   logs.reverse();
   const renderAuditRows = (containerId) => {
     fill(containerId, table([
@@ -767,10 +839,15 @@ async function loadAudit() {
 }
 
 async function verifyAuditChain(pillId) {
-  const v = await api("GET", "/logs/verify", null, "supervisor-key");
-  fill(pillId, v.valid ? badge("ALLOWED") : badge("BLOCKED"),
-    el("span", { class: "muted", style: "font-size:12px;margin-left:6px" },
-      v.valid ? `${v.entries} entries · SHA-256 chain verified intact` : `Tampering detected at entry #${v.first_bad_id}`));
+  try {
+    const v = await api("GET", "/logs/verify", null, auditReaderKey());
+    fill(pillId, v.valid ? badge("ALLOWED") : badge("BLOCKED"),
+      el("span", { class: "muted", style: "font-size:12px;margin-left:6px" },
+        v.valid ? `${v.entries} entries · SHA-256 chain verified intact` : `Tampering detected at entry #${v.first_bad_id}`));
+  } catch (e) {
+    fill(pillId, badge("BLOCKED"), el("span", { class: "muted", style: "font-size:12px;margin-left:6px" }, e.message));
+    toast(e.message);
+  }
 }
 const vBtn = $("verifyBtn");
 if (vBtn) vBtn.addEventListener("click", () => verifyAuditChain("chainPill"));

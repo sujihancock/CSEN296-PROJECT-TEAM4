@@ -72,7 +72,7 @@ def test_records_tools_execution(conn):
     cust = tools.call_tool(conn, "RecordsAgent", "records.get_customer", {"customer_id": "CUST-001"}, "CUST-001")
     assert cust is not None
     assert cust["id"] == "CUST-001"
-    assert cust["email"] == "alex.smith@example.com"
+    assert cust["email"] == "alexandre.lopes@example.com"
 
     order = tools.call_tool(conn, "RecordsAgent", "records.get_order", {"order_id": "ORD-101"}, "CUST-001")
     assert order is not None
@@ -94,7 +94,7 @@ def test_email_tool_execution(conn):
 
     email_res = tools.call_tool(
         conn, "EmailAgent", "email.send",
-        {"case_id": case_id, "to_email": "alex.smith@example.com", "subject": "Test", "body": "Body", "email_type": "TEST"},
+        {"case_id": case_id, "to_email": "alexandre.lopes@example.com", "subject": "Test", "body": "Body", "email_type": "TEST"},
         "CUST-001",
     )
     assert email_res["sent"] is True
@@ -102,7 +102,7 @@ def test_email_tool_execution(conn):
     # Verify persisted in emails table
     rows = conn.execute("SELECT * FROM emails WHERE case_id = ?", (case_id,)).fetchall()
     assert len(rows) == 1
-    assert rows[0]["to_email"] == "alex.smith@example.com"
+    assert rows[0]["to_email"] == "alexandre.lopes@example.com"
 
 
 def test_reporting_tool_execution(conn):
