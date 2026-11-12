@@ -1,0 +1,51 @@
+{
+  "id": "RT-24",
+  "attack_id": "ATK-24",
+  "title": "Admin attempts to access supervisor-only functionality",
+  "owasp": "ASI03",
+  "maestro": "Security & Compliance",
+  "appendix_d": "Implementation",
+  "priority": "Medium",
+  "attacks": [
+    {
+      "id": "RT-24-a",
+      "title": "Admin cannot engage the kill switch",
+      "category": "guardrail",
+      "steps": [
+        {
+          "type": "role_gate",
+          "api_key": "admin-key",
+          "allowed_roles": [
+            "supervisor"
+          ]
+        }
+      ],
+      "expect": {
+        "status_in": [
+          "FORBIDDEN"
+        ],
+        "max_paid": 0
+      }
+    },
+    {
+      "id": "RT-24-b",
+      "title": "Admin cannot decide escalated cases",
+      "category": "guardrail",
+      "steps": [
+        {
+          "type": "role_gate",
+          "api_key": "admin-key",
+          "allowed_roles": [
+            "supervisor"
+          ]
+        }
+      ],
+      "expect": {
+        "status_in": [
+          "FORBIDDEN"
+        ],
+        "max_paid": 0
+      }
+    }
+  ]
+}

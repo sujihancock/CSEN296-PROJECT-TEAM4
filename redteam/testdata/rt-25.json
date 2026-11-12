@@ -1,0 +1,51 @@
+{
+  "id": "RT-25",
+  "attack_id": "ATK-25",
+  "title": "Supervisor attempts to upload or modify refund policies",
+  "owasp": "ASI03",
+  "maestro": "Security & Compliance",
+  "appendix_d": "Implementation",
+  "priority": "Medium",
+  "attacks": [
+    {
+      "id": "RT-25-a",
+      "title": "Supervisor cannot POST /policies",
+      "category": "guardrail",
+      "steps": [
+        {
+          "type": "role_gate",
+          "api_key": "supervisor-key",
+          "allowed_roles": [
+            "admin"
+          ]
+        }
+      ],
+      "expect": {
+        "status_in": [
+          "FORBIDDEN"
+        ],
+        "max_paid": 0
+      }
+    },
+    {
+      "id": "RT-25-b",
+      "title": "Supervisor cannot reset demo / wipe policies",
+      "category": "guardrail",
+      "steps": [
+        {
+          "type": "role_gate",
+          "api_key": "supervisor-key",
+          "allowed_roles": [
+            "admin"
+          ]
+        }
+      ],
+      "expect": {
+        "status_in": [
+          "FORBIDDEN"
+        ],
+        "max_paid": 0
+      }
+    }
+  ]
+}

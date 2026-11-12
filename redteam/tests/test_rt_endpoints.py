@@ -27,22 +27,22 @@ def test_all_guardrail_attacks_defended(rt):
     assert result["summary"]["guardrail_failures"] == [], result["summary"]
 
 
-def test_all_six_attack_files_present():
-    assert redteam.available_tests() == [f"rt-0{i}" for i in range(1, 7)]
+def test_all_twenty_five_attack_files_present():
+    assert redteam.available_tests() == [f"rt-{i:02d}" for i in range(1, 26)]
 
 
 def test_endpoint_writes_evidence_and_logs_run(tmp_path):
     with TestClient(app) as client:
-        r = client.post("/tests/rt-05", headers=ADMIN)
+        r = client.post("/tests/rt-21", headers=ADMIN)
         assert r.status_code == 200
         body = r.json()
-        assert body["rt"] == "RT-05"
+        assert body["rt"] == "RT-21"
         evidence = json.loads((tmp_path / body["evidence_path"]).read_text())
         assert evidence["summary"]["attacks"] == 3
         assert all(a["audit_chain_valid"] for a in evidence["results"])
 
         logs = client.get("/logs", headers=ADMIN).json()
-        assert any(e["action"] == "RT-05_RUN" for e in logs)
+        assert any(e["action"] == "RT-21_RUN" for e in logs)
 
 
 def test_sandbox_does_not_touch_live_data():
