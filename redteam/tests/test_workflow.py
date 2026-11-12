@@ -81,6 +81,14 @@ def test_ui_is_served():
         assert "ChangSupport.AI" in r.text
         assert "Interactive Sandbox" in r.text
 
+        css = client.get("/static/css/styles.css")
+        assert css.status_code == 200
+        assert "--accent" in css.text
+
+        js = client.get("/static/js/app.js")
+        assert js.status_code == 200
+        assert "applyPreset" in js.text
+
 
 def test_demo_customers_endpoint():
     with TestClient(app) as client:

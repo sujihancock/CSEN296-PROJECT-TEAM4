@@ -13,6 +13,7 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app import audit, config, guardrails, redteam, tools
@@ -76,11 +77,19 @@ class TaskRequest(BaseModel):
 
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+if (STATIC_DIR / "css").exists():
+    app.mount("/css", StaticFiles(directory=STATIC_DIR / "css"), name="css")
+if (STATIC_DIR / "js").exists():
+    app.mount("/js", StaticFiles(directory=STATIC_DIR / "js"), name="js")
 
 
 @app.get("/", include_in_schema=False)
 def ui():
-    return FileResponse(STATIC_DIR / "index.html")
+    return FileResponse(
+        STATIC_DIR / "index.html",
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+    )
 
 
 @app.get("/health")

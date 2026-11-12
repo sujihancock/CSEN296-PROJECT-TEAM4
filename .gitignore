@@ -45,3 +45,7 @@ htmlcov/
 data/
 logs/
 redteam/results/
+
+# Agent skills & local caches
+.agents/
+.impeccable/
