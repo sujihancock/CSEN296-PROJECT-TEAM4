@@ -8,53 +8,74 @@
 </head>
 <body>
 
+<!-- Global Application Header -->
 <header class="app-header">
   <div class="header-container">
     <div class="header-brand">
-      <div class="brand-logo">
+      <div class="brand-logo" aria-hidden="true">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <polyline points="9 12 11 14 15 10"/>
         </svg>
       </div>
       <div class="brand-info">
         <span class="brand-name">ChangSupport.AI</span>
-        <span class="brand-tagline">Multi-Agent Refund Console</span>
+        <span class="brand-tagline">Multi-Agent Operations Cockpit</span>
       </div>
     </div>
 
-    <!-- System Telemetry Bar -->
-    <div class="header-telemetry">
+    <!-- Live Telemetry Status Pills -->
+    <div class="header-telemetry" role="status" aria-label="System telemetry">
       <div id="killPill" class="telemetry-pill">
         <span class="status-dot"></span>
         <span class="telemetry-text">Checking authority...</span>
       </div>
       <div id="vectorPill" class="telemetry-pill purple">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 3v6m0 6v6M3 12h6m6 0h6"/></svg>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v6m0 6v6M3 12h6m6 0h6"/></svg>
         <span>ChromaDB Vector Store</span>
       </div>
     </div>
 
-    <!-- Navigation Tabs (No Emojis) -->
-    <nav class="nav-segmented" role="tablist">
-      <button class="nav-item active" data-tab="sandbox" role="tab">Interactive Sandbox</button>
-      <button class="nav-item" data-tab="customer" role="tab">Customer Portal</button>
-      <button class="nav-item" data-tab="supervisor" role="tab">Supervisor Queue</button>
-      <button class="nav-item" data-tab="admin" role="tab">Vector Policies</button>
-      <button class="nav-item" data-tab="audit" role="tab">Audit Trail</button>
+    <!-- Segmented Navigation Bar -->
+    <nav class="nav-segmented" role="tablist" aria-label="Workspace navigation">
+      <button class="nav-item active" data-tab="sandbox" role="tab" aria-selected="true">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <span>Interactive Sandbox</span>
+      </button>
+      <button class="nav-item" data-tab="customer" role="tab" aria-selected="false">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span>Customer Portal</span>
+      </button>
+      <button class="nav-item" data-tab="supervisor" role="tab" aria-selected="false">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="18" y1="8" x2="23" y2="13"/><line x1="23" y1="8" x2="18" y2="13"/></svg>
+        <span>Supervisor Queue</span>
+      </button>
+      <button class="nav-item" data-tab="admin" role="tab" aria-selected="false">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+        <span>Vector Policies</span>
+      </button>
+      <button class="nav-item" data-tab="audit" role="tab" aria-selected="false">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        <span>Audit Trail</span>
+      </button>
     </nav>
 
-    <!-- Header Actions -->
+    <!-- Header Persona & Theme Controls -->
     <div class="header-controls">
-      <button id="themeToggleBtn" class="icon-button" title="Toggle Theme" aria-label="Toggle theme">
+      <div class="persona-selector-wrap" title="Active Actor Persona">
+        <label for="role" class="visually-hidden">Actor Identity</label>
+        <select id="role" class="header-select" aria-label="Role selector">
+          <option value="customer-001-key">Customer · Alex Smith (CUST-001)</option>
+          <option value="customer-002-key">Customer · Elena Rostova (CUST-002)</option>
+          <option value="customer-003-key">Customer · Marcus Vance (CUST-003)</option>
+          <option value="supervisor-key">Supervisor (SUP-001)</option>
+          <option value="admin-key">Admin (ADMIN-001)</option>
+        </select>
+      </div>
+
+      <button id="themeToggleBtn" class="icon-button" title="Toggle Color Theme" aria-label="Toggle theme">
         <span id="themeIcon"></span>
       </button>
-      <select id="role" style="display:none;" aria-label="Role selector">
-        <option value="customer-001-key">Customer · Alex Smith (CUST-001)</option>
-        <option value="customer-002-key">Customer · Elena Rostova (CUST-002)</option>
-        <option value="customer-003-key">Customer · Marcus Vance (CUST-003)</option>
-        <option value="supervisor-key">Supervisor (SUP-001)</option>
-        <option value="admin-key">Admin (ADMIN-001)</option>
-      </select>
     </div>
   </div>
 </header>
@@ -62,42 +83,64 @@
 <main class="app-main">
   <!-- ======================================================== TAB 1: SANDBOX -->
   <div id="view-sandbox">
-    <!-- Test Scenarios Toolbar -->
-    <div class="scenario-toolbar">
-      <div class="scenario-label">Benchmark Scenarios:</div>
-      <div class="scenario-buttons">
+    <!-- Test Scenarios Deck -->
+    <section class="scenario-deck" aria-label="Benchmark Scenarios">
+      <div class="scenario-deck-header">
+        <div class="scenario-deck-title">Benchmark Scenarios</div>
+        <div id="scenarioDescription" class="scenario-description">
+          Standard refund claim: Physical headphones broken in shipping within 30 days. Autonomous approval expected.
+        </div>
+      </div>
+      <div class="scenario-grid">
         <button type="button" class="scenario-btn active" data-scenario="standard" onclick="applyPreset('standard')">
-          <span class="scenario-name">Standard Claim</span>
-          <span class="scenario-chip success">$45.00</span>
+          <div class="scenario-btn-top">
+            <span class="scenario-name">Standard Claim</span>
+            <span class="scenario-chip success">$45.00</span>
+          </div>
+          <span class="scenario-tag">Under Cap · Physical Good</span>
         </button>
-        <button type="button" class="scenario-btn" data-scenario="high_value" onclick="applyPreset('high_value')">
-          <span class="scenario-name">High-Value Cap</span>
-          <span class="scenario-chip warning">$450.00</span>
-        </button>
-        <button type="button" class="scenario-btn" data-scenario="digital" onclick="applyPreset('digital')">
-          <span class="scenario-name">Digital Goods</span>
-          <span class="scenario-chip danger">$30.00</span>
-        </button>
-        <button type="button" class="scenario-btn" data-scenario="injection" onclick="applyPreset('injection')">
-          <span class="scenario-name">Prompt Injection</span>
-          <span class="scenario-chip purple">Attack</span>
-        </button>
-        <button type="button" class="scenario-btn" data-scenario="revocation" onclick="applyPreset('revocation')">
-          <span class="scenario-name">Kill Switch</span>
-          <span class="scenario-chip danger">Fail-Closed</span>
-        </button>
-      </div>
-      <div id="scenarioDescription" class="scenario-description">
-        Standard refund claim: Physical headphones broken in shipping within 30 days. Autonomous approval expected.
-      </div>
-    </div>
 
-    <!-- Workbench Layout -->
+        <button type="button" class="scenario-btn" data-scenario="high_value" onclick="applyPreset('high_value')">
+          <div class="scenario-btn-top">
+            <span class="scenario-name">High-Value Cap</span>
+            <span class="scenario-chip warning">$450.00</span>
+          </div>
+          <span class="scenario-tag">Exceeds $100 · Escalated</span>
+        </button>
+
+        <button type="button" class="scenario-btn" data-scenario="digital" onclick="applyPreset('digital')">
+          <div class="scenario-btn-top">
+            <span class="scenario-name">Digital Goods</span>
+            <span class="scenario-chip danger">$30.00</span>
+          </div>
+          <span class="scenario-tag">Non-Refundable Policy</span>
+        </button>
+
+        <button type="button" class="scenario-btn" data-scenario="injection" onclick="applyPreset('injection')">
+          <div class="scenario-btn-top">
+            <span class="scenario-name">Prompt Injection</span>
+            <span class="scenario-chip purple">Attack</span>
+          </div>
+          <span class="scenario-tag">Adversarial Override Payload</span>
+        </button>
+
+        <button type="button" class="scenario-btn" data-scenario="revocation" onclick="applyPreset('revocation')">
+          <div class="scenario-btn-top">
+            <span class="scenario-name">Kill Switch</span>
+            <span class="scenario-chip danger">Fail-Closed</span>
+          </div>
+          <span class="scenario-tag">Emergency Revocation</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Workbench Layout (Input vs. Multi-Agent Pipeline) -->
     <div class="workbench-layout">
-      <!-- Left Column: Input Panel -->
-      <div class="workbench-panel">
+      <!-- Left Column: Input Parameters -->
+      <section class="workbench-panel" aria-label="Claim Parameters">
         <div class="panel-header">
           <h2 class="panel-title">Claim Parameters</h2>
+          <span class="panel-badge font-mono">INTAKE</span>
         </div>
 
         <form id="sandboxForm" class="form-vertical">
@@ -110,15 +153,24 @@
             </select>
           </div>
 
-          <!-- Customer Ledger Preview -->
-          <div class="customer-ledger-preview">
-            <div class="ledger-row">
-              <span class="ledger-label">Available Balance</span>
-              <span id="sbBankBalance" class="ledger-value font-mono">$1,250.00</span>
+          <!-- Customer Financial Account Card -->
+          <div class="account-card">
+            <div class="account-card-header">
+              <div class="account-avatar font-mono" id="sbAvatar">C1</div>
+              <div class="account-meta">
+                <span class="account-name" id="sbAccountName">Alex Smith</span>
+                <span class="account-sub font-mono">Checking Account · Verified</span>
+              </div>
+              <div class="account-balance-wrap">
+                <span class="account-balance-label">Bank Balance</span>
+                <span id="sbBankBalance" class="account-balance-value font-mono">$1,250.00</span>
+              </div>
             </div>
-            <div class="ledger-row sub">
-              <span class="ledger-label">Latest Notification</span>
-              <span id="sbLatestEmail" class="ledger-subtext">No notifications received yet</span>
+            <div class="account-card-footer">
+              <span class="notification-icon" aria-hidden="true">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              </span>
+              <span id="sbLatestEmail" class="account-notification-text">No notifications received yet</span>
             </div>
           </div>
 
@@ -129,7 +181,10 @@
 
           <div class="form-group">
             <label for="sbAmount">Claim Amount (USD)</label>
-            <input id="sbAmount" type="number" step="0.01" required>
+            <div class="currency-input-wrapper">
+              <span class="currency-symbol font-mono">$</span>
+              <input id="sbAmount" type="number" step="0.01" min="0.01" required placeholder="0.00">
+            </div>
           </div>
 
           <div class="form-group">
@@ -140,37 +195,50 @@
           <div class="form-actions">
             <button class="btn btn-primary" type="submit" id="sbSubmitBtn">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-              Execute Agent Pipeline
+              <span>Execute Agent Pipeline</span>
             </button>
-            <button type="button" class="btn btn-ghost" onclick="resetDemoData()">Reset Database</button>
+            <button type="button" class="btn btn-secondary" onclick="resetDemoData()">Reset Demo Data</button>
           </div>
         </form>
-      </div>
+      </section>
 
-      <!-- Right Column: Real-Time Execution Trace Stream -->
-      <div class="workbench-panel">
+      <!-- Right Column: Real-Time Multi-Agent Execution Lifecycle Stream -->
+      <section class="workbench-panel" aria-label="Execution Lifecycle Stream">
         <div class="panel-header">
-          <h2 class="panel-title">Execution Lifecycle Stream</h2>
+          <div class="panel-title-group">
+            <h2 class="panel-title">Multi-Agent Execution Pipeline</h2>
+            <span class="panel-subtitle">Partitioned Defense-in-Depth</span>
+          </div>
           <div id="pipelineStatusBadge"></div>
         </div>
 
+        <!-- Idle State -->
         <div id="pipelineEmpty" class="pipeline-placeholder">
           <div class="placeholder-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <polygon points="10 8 16 12 10 16 10 8"/>
+            </svg>
           </div>
-          <div class="placeholder-title">Agent Pipeline Idle</div>
-          <div class="placeholder-text">Select a scenario above or submit claim parameters to execute the multi-agent decision pipeline.</div>
+          <div class="placeholder-title">Multi-Agent Pipeline Idle</div>
+          <div class="placeholder-text">
+            Select a benchmark scenario above or configure claim parameters, then click <b>Execute Agent Pipeline</b> to run autonomous policy retrieval and guardrail verification.
+          </div>
         </div>
 
+        <!-- Active Stream Timeline -->
         <div id="pipelineWrap" class="timeline-stream" style="display:none">
           <!-- Step 1: Intake Specialist -->
           <div class="timeline-item" id="step-intake">
             <div class="timeline-indicator">
-              <span class="timeline-badge">1</span>
+              <span class="timeline-badge font-mono">1</span>
             </div>
             <div class="timeline-body">
               <div class="timeline-header">
-                <span class="timeline-agent">Intake Specialist</span>
+                <div class="timeline-agent-meta">
+                  <span class="timeline-agent">Intake Specialist</span>
+                  <span class="role-badge">Agent 1</span>
+                </div>
                 <span class="font-mono chip" id="badge-case-id">—</span>
               </div>
               <div class="timeline-summary" id="desc-intake">Opened new customer claim case.</div>
@@ -180,11 +248,14 @@
           <!-- Step 2: Records Specialist -->
           <div class="timeline-item" id="step-records">
             <div class="timeline-indicator">
-              <span class="timeline-badge">2</span>
+              <span class="timeline-badge font-mono">2</span>
             </div>
             <div class="timeline-body">
               <div class="timeline-header">
-                <span class="timeline-agent">Records Specialist</span>
+                <div class="timeline-agent-meta">
+                  <span class="timeline-agent">Records Specialist</span>
+                  <span class="role-badge">Agent 2</span>
+                </div>
                 <span class="chip success">Tenant Verified</span>
               </div>
               <div class="timeline-summary" id="desc-records">Verified customer identity, order ownership, and purchase date.</div>
@@ -194,14 +265,17 @@
           <!-- Step 3: ChromaDB Vector RAG -->
           <div class="timeline-item" id="step-rag">
             <div class="timeline-indicator">
-              <span class="timeline-badge">3</span>
+              <span class="timeline-badge font-mono">3</span>
             </div>
             <div class="timeline-body">
               <div class="timeline-header">
-                <span class="timeline-agent">ChromaDB Vector Store (RAG)</span>
-                <span class="chip purple">Semantic Search</span>
+                <div class="timeline-agent-meta">
+                  <span class="timeline-agent">ChromaDB Vector Store (RAG)</span>
+                  <span class="role-badge purple">Embedding Search</span>
+                </div>
+                <span class="chip purple">all-MiniLM-L6-v2</span>
               </div>
-              <div class="timeline-summary" id="desc-rag">Queried refund policies via embeddings.</div>
+              <div class="timeline-summary" id="desc-rag">Queried refund policies via vector embeddings.</div>
               <div class="timeline-expandable" id="data-rag" style="display:none"></div>
             </div>
           </div>
@@ -209,11 +283,14 @@
           <!-- Step 4: Refunds Specialist (LLM) -->
           <div class="timeline-item" id="step-llm">
             <div class="timeline-indicator">
-              <span class="timeline-badge">4</span>
+              <span class="timeline-badge font-mono">4</span>
             </div>
             <div class="timeline-body">
               <div class="timeline-header">
-                <span class="timeline-agent">Refunds Specialist (LLM)</span>
+                <div class="timeline-agent-meta">
+                  <span class="timeline-agent">Refunds Specialist (LLM)</span>
+                  <span class="role-badge">Reasoning Engine</span>
+                </div>
                 <span class="chip" id="badge-llm-action">—</span>
               </div>
               <div class="timeline-summary" id="desc-llm">Evaluated claim against retrieved policies.</div>
@@ -224,11 +301,14 @@
           <!-- Step 5: Deterministic Guardrails -->
           <div class="timeline-item" id="step-guardrails">
             <div class="timeline-indicator">
-              <span class="timeline-badge">5</span>
+              <span class="timeline-badge font-mono">5</span>
             </div>
             <div class="timeline-body">
               <div class="timeline-header">
-                <span class="timeline-agent">Policy Guardrails (Deterministic)</span>
+                <div class="timeline-agent-meta">
+                  <span class="timeline-agent">Deterministic Policy Guardrails</span>
+                  <span class="role-badge warning">Hard Boundaries</span>
+                </div>
                 <span class="chip" id="badge-guard-verdict">—</span>
               </div>
               <div class="timeline-summary" id="desc-guard">Enforced $100 single limit, $500 weekly budget, and authority kill switch.</div>
@@ -239,11 +319,14 @@
           <!-- Step 6: Bank Disbursement & Email -->
           <div class="timeline-item" id="step-bank">
             <div class="timeline-indicator">
-              <span class="timeline-badge">6</span>
+              <span class="timeline-badge font-mono">6</span>
             </div>
             <div class="timeline-body">
               <div class="timeline-header">
-                <span class="timeline-agent">Settlement &amp; Notification</span>
+                <div class="timeline-agent-meta">
+                  <span class="timeline-agent">Settlement &amp; Customer Dispatch</span>
+                  <span class="role-badge success">Disbursement</span>
+                </div>
                 <span class="chip" id="badge-bank">—</span>
               </div>
               <div class="timeline-summary" id="desc-bank">Disbursement status and customer notification dispatch.</div>
@@ -251,41 +334,57 @@
           </div>
         </div>
 
-        <!-- Outcome Banner -->
+        <!-- Outcome Banner & Verdict Summary -->
         <div id="outcomeBox" class="outcome-banner" style="display:none">
           <div class="outcome-header" id="outcomeTitle"></div>
           <div class="outcome-detail" id="outcomeDesc"></div>
 
           <!-- Inline Supervisor Action for Escalated Cases -->
           <div id="inlineSupervisorCard" class="supervisor-intercept-card" style="display:none">
-            <div class="intercept-title">Human Supervisor Escalation Queue</div>
-            <div class="intercept-prompt">This claim exceeded autonomous limits and requires human review:</div>
-            <input id="sbSupervisorComment" class="input-text" placeholder="Audit rationale (e.g. verified receipt and undamaged return)">
+            <div class="intercept-header">
+              <span class="intercept-badge">HUMAN REVIEW REQUIRED</span>
+              <span class="intercept-title">Human Supervisor Escalation Queue</span>
+            </div>
+            <p class="intercept-prompt">This claim exceeded autonomous guardrails and requires a human supervisor's review:</p>
+            <div class="intercept-input-wrap">
+              <input id="sbSupervisorComment" class="input-text" placeholder="Audit rationale (e.g. verified physical receipt and return shipment)">
+            </div>
             <div class="intercept-actions">
-              <button type="button" class="btn btn-sm btn-primary" id="sbApproveBtn">Authorize &amp; Disburse</button>
-              <button type="button" class="btn btn-sm btn-danger" id="sbDenyBtn">Reject Claim</button>
+              <button type="button" class="btn btn-sm btn-primary" id="sbApproveBtn">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                Authorize &amp; Disburse
+              </button>
+              <button type="button" class="btn btn-sm btn-danger" id="sbDenyBtn">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                Reject Claim
+              </button>
             </div>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   </div>
 
   <!-- ======================================================== TAB 2: CUSTOMER -->
   <div id="view-customer" hidden>
     <div class="workbench-layout">
-      <div class="workbench-panel">
+      <!-- Submit Refund Claim -->
+      <section class="workbench-panel">
         <div class="panel-header">
           <h2 class="panel-title">Submit Refund Claim</h2>
+          <span class="panel-badge">SELF-SERVICE</span>
         </div>
         <form id="refundForm" class="form-vertical">
           <div class="form-group">
-            <label for="orderSel">Order</label>
+            <label for="orderSel">Eligible Order</label>
             <select id="orderSel" required></select>
           </div>
           <div class="form-group">
-            <label for="amount">Amount (USD)</label>
-            <input id="amount" type="number" step="0.01" required>
+            <label for="amount">Requested Amount (USD)</label>
+            <div class="currency-input-wrapper">
+              <span class="currency-symbol font-mono">$</span>
+              <input id="amount" type="number" step="0.01" min="0.01" required placeholder="0.00">
+            </div>
           </div>
           <div class="form-group">
             <label for="reason">Return Reason</label>
@@ -295,38 +394,46 @@
             <button class="btn btn-primary" type="submit">Submit Claim</button>
           </div>
         </form>
-        <div id="refundResult" style="margin-top:16px"></div>
-      </div>
+        <div id="refundResult"></div>
+      </section>
 
-      <div class="workbench-panel">
+      <!-- Customer Notification Inbox -->
+      <section class="workbench-panel">
         <div class="panel-header">
-          <h2 class="panel-title">Notification Inbox</h2>
+          <h2 class="panel-title">Customer Notification Inbox</h2>
+          <span class="panel-badge font-mono">SIMULATED EMAIL</span>
         </div>
         <div id="inbox" class="scrollable-list"></div>
-      </div>
+      </section>
     </div>
 
-    <div class="data-section">
+    <!-- My Submitted Cases Table -->
+    <section class="data-section">
       <div class="panel-header">
         <h2 class="panel-title">My Submitted Cases</h2>
+        <span class="panel-subtitle">Tenant-Isolated Claims</span>
       </div>
       <div class="table-container" id="myCases"></div>
-    </div>
+    </section>
 
-    <div class="data-section">
+    <!-- My Order History Table -->
+    <section class="data-section">
       <div class="panel-header">
         <h2 class="panel-title">My Order History</h2>
+        <span class="panel-subtitle">Verified Purchases</span>
       </div>
       <div class="table-container" id="myOrders"></div>
-    </div>
+    </section>
   </div>
 
   <!-- ======================================================== TAB 3: SUPERVISOR -->
   <div id="view-supervisor" hidden>
+    <!-- Top Telemetry & Escalation Queue -->
     <div class="workbench-layout">
-      <div class="workbench-panel">
+      <section class="workbench-panel">
         <div class="panel-header">
           <h2 class="panel-title">Deterministic Guardrails Telemetry</h2>
+          <span class="panel-badge warning">ENFORCEMENT</span>
         </div>
         <div id="guardStatus" class="telemetry-metrics"></div>
         <div class="form-group" style="margin-top:16px">
@@ -336,60 +443,83 @@
         <div class="form-actions">
           <button id="ksBtn" class="btn btn-danger">Activate Kill Switch</button>
         </div>
-      </div>
+      </section>
 
-      <div class="workbench-panel">
+      <section class="workbench-panel">
         <div class="panel-header">
           <h2 class="panel-title">Escalated Review Queue</h2>
-          <button class="btn btn-sm btn-ghost" data-refresh="supervisor">Refresh</button>
+          <button class="btn btn-sm btn-secondary" data-refresh="supervisor">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            Refresh
+          </button>
         </div>
         <div id="escalated" class="scrollable-list"></div>
-      </div>
+      </section>
     </div>
 
-    <div class="data-section">
+    <!-- Red-Team Attack Harness -->
+    <section class="data-section">
       <div class="panel-header">
-        <h2 class="panel-title">Red-Team Attack Harness</h2>
-        <span class="panel-subtitle">Executes in an isolated database sandbox without touching live production data</span>
+        <div class="panel-title-group">
+          <h2 class="panel-title">Red-Team Attack Harness</h2>
+          <span class="panel-subtitle">Deterministic defense verification across 6 adversarial test suites</span>
+        </div>
       </div>
       <div class="test-runner-toolbar" id="rtButtons"></div>
       <div id="rtResults"></div>
-    </div>
+    </section>
+
+    <!-- Shared Cryptographic Audit Trail for Supervisor -->
+    <section class="data-section" id="auditCard">
+      <div class="panel-header">
+        <h2 class="panel-title">Cryptographic SHA-256 Audit Trail</h2>
+        <div id="chainPillSupervisor" class="chain-badge"></div>
+        <div class="panel-actions">
+          <button class="btn btn-sm btn-secondary" id="verifyBtnSupervisor">Verify Chain</button>
+          <button class="btn btn-sm btn-ghost" id="auditRefreshSupervisor">Refresh</button>
+        </div>
+      </div>
+      <div class="table-container scrollable-table" id="auditSupervisor"></div>
+    </section>
   </div>
 
   <!-- ======================================================== TAB 4: ADMIN -->
   <div id="view-admin" hidden>
     <div class="workbench-layout">
-      <div class="workbench-panel">
+      <!-- Upload & Index Policy -->
+      <section class="workbench-panel">
         <div class="panel-header">
           <h2 class="panel-title">Upload &amp; Index Policy</h2>
+          <span class="panel-badge purple">CHROMA DB</span>
         </div>
         <form id="policyForm" class="form-vertical">
           <div class="form-group">
             <label for="pId">Policy ID</label>
-            <input id="pId" required placeholder="POL-005">
+            <input id="pId" required placeholder="e.g. POL-005" class="font-mono">
           </div>
           <div class="form-group">
-            <label for="pTitle">Title</label>
+            <label for="pTitle">Policy Title</label>
             <input id="pTitle" required placeholder="e.g. Extended Holiday Return Policy">
           </div>
           <div class="form-group">
-            <label for="pContent">Policy Content (Embeddings generated via ONNX)</label>
-            <textarea id="pContent" required placeholder="Authoritative policy text..."></textarea>
+            <label for="pContent">Policy Content (Embedded via ONNX)</label>
+            <textarea id="pContent" required placeholder="Authoritative policy rules and refund constraints..."></textarea>
           </div>
           <div class="form-group">
-            <label for="pTags">Search Keywords</label>
-            <input id="pTags" placeholder="space-separated search tags">
+            <label for="pTags">Search Keywords &amp; Tags</label>
+            <input id="pTags" placeholder="e.g. holiday return physical electronics">
           </div>
           <div class="form-actions">
             <button class="btn btn-primary" type="submit">Index into ChromaDB</button>
           </div>
         </form>
-      </div>
+      </section>
 
-      <div class="workbench-panel">
+      <!-- Vector Store Status & Reset Utility -->
+      <section class="workbench-panel">
         <div class="panel-header">
           <h2 class="panel-title">Vector Store Status</h2>
+          <span class="panel-badge">ONNX EMBEDDINGS</span>
         </div>
         <div id="vectorStats" class="telemetry-metrics">
           <div class="metric-row"><span class="metric-label">Vector Engine</span><span class="font-mono">ChromaDB (Embedded ONNX)</span></div>
@@ -398,49 +528,45 @@
         </div>
         <div class="danger-zone">
           <div class="danger-title">Database Reset Utility</div>
-          <div class="danger-description">Restores customers, balances, orders, and seed policies. Clears ChromaDB vector embeddings.</div>
+          <div class="danger-description">Restores customers, balances, orders, and seed policies. Clears and re-indexes ChromaDB vector embeddings.</div>
           <button id="resetBtn" class="btn btn-danger">Reset All Demo Data</button>
         </div>
-      </div>
+      </section>
     </div>
 
-    <div class="data-section">
+    <!-- Indexed Policies Table -->
+    <section class="data-section">
       <div class="panel-header">
         <h2 class="panel-title">Indexed Refund Policies</h2>
+        <span class="panel-subtitle">ChromaDB &amp; SQLite Dual Store</span>
       </div>
       <div class="table-container" id="policies"></div>
-    </div>
+    </section>
   </div>
 
   <!-- ======================================================== TAB 5: AUDIT LOG -->
   <div id="view-audit" hidden>
-    <div class="data-section">
+    <section class="data-section">
       <div class="panel-header">
-        <h2 class="panel-title">Cryptographic SHA-256 Audit Trail</h2>
+        <div class="panel-title-group">
+          <h2 class="panel-title">Cryptographic SHA-256 Audit Trail</h2>
+          <span class="panel-subtitle">Tamper-evident append-only ledger</span>
+        </div>
         <div id="chainPill" class="chain-badge"></div>
         <div class="panel-actions">
-          <button class="btn btn-sm btn-secondary" id="verifyBtn">Verify Hash Chain</button>
+          <button class="btn btn-sm btn-secondary" id="verifyBtn">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Verify Hash Chain
+          </button>
           <button class="btn btn-sm btn-ghost" id="auditRefresh">Refresh</button>
         </div>
       </div>
       <div class="table-container scrollable-table" id="audit"></div>
-    </div>
-  </div>
-
-  <!-- Shared supervisor audit card -->
-  <div class="data-section" id="auditCard" hidden>
-    <div class="panel-header">
-      <h2 class="panel-title">Cryptographic Audit Trail</h2>
-      <div id="chainPillSupervisor" class="chain-badge"></div>
-      <div class="panel-actions">
-        <button class="btn btn-sm btn-secondary" id="verifyBtnSupervisor">Verify Chain</button>
-        <button class="btn btn-sm btn-ghost" id="auditRefreshSupervisor">Refresh</button>
-      </div>
-    </div>
-    <div class="table-container scrollable-table" id="auditSupervisor"></div>
+    </section>
   </div>
 </main>
 
+<!-- Accessible Live Toast -->
 <div id="toast" role="status" aria-live="polite"></div>
 
 <script src="/static/js/app.js" defer></script>
