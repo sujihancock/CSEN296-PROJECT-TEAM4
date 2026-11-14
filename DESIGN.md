@@ -61,3 +61,8 @@ Designed with rich contrast, restrained neutrals, and purposeful semantic tokens
    - Compact table height, sticky headers, tabular figures, monospace hash truncation with click-to-copy, hover row highlights.
 5. **Human-in-the-Loop Action Center**:
    - Elevated supervisor decision panel embedded right into escalated workflow states.
+6. **Operations Overview (default tab)**:
+   - State band: one surface split by hairlines into six cells (authority, 7-day spend, review queue, audit chain, reasoning engine, policy index). Each cell is a label, a 15px value with a solid state dot (no glow), and a one-line consequence. The kill switch is the only destructive control here and always asks for confirmation.
+   - Working grid 3fr / 2fr: guardrail budget gauge (ticks at quarters; accent → amber at 80% → red at 100%) and case-decision mix on the left with recent cases; escalation queue, audit feed (Notable / All filter) and agent permission scopes on the right. Money-moving tools are tinted amber.
+   - Panels render on their own: one failing endpoint shows an inline error in its panel only. The tab refreshes every 15s while it is visible.
+   - Header: below 1600px the workspace tabs move to their own underline-tab row under the brand bar; below 720px the header stops being sticky.
