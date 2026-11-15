@@ -66,3 +66,7 @@ Designed with rich contrast, restrained neutrals, and purposeful semantic tokens
    - Working grid 3fr / 2fr: guardrail budget gauge (ticks at quarters; accent → amber at 80% → red at 100%) and case-decision mix on the left with recent cases; escalation queue, audit feed (Notable / All filter) and agent permission scopes on the right. Money-moving tools are tinted amber.
    - Panels render on their own: one failing endpoint shows an inline error in its panel only. The tab refreshes every 15s while it is visible.
    - Header: below 1600px the workspace tabs move to their own underline-tab row under the brand bar; below 720px the header stops being sticky.
+7. **Workspace pages (Customer, Supervisor, Policies, Audit)**:
+   - Same skeleton as the overview: `.ov-head` with an "Acting as" account picker on the right, a state band of four or five cells, then the 3fr / 2fr panel grid. Page-only pieces use a `pg-` prefix.
+   - Picking an account without the page's role shows an amber note explaining the 403s; each panel then shows its own inline error.
+   - **Customer portal**: account band (identity, balance, open claims, refunded to date); claim form with an order fact strip and live hints that predict the guardrail outcome (over remaining refundable → denied, over $100 → supervisor, digital or past 30 days → policy warning); claims table; inbox feed tinted by decision; order list with one-click "Claim".
