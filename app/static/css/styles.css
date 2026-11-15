@@ -2021,3 +2021,17 @@ td.mono {
   .pg-ledger-grid { grid-template-columns: minmax(0, 1fr); gap: 4px; }
   .pg-ledger-head .pg-search { margin-left: 0; width: 100%; }
 }
+
+/* ---- Workspace pages at phone width ---- */
+@media (max-width: 640px) {
+  .ov-head { flex-wrap: wrap; }
+  .ov-head-title { min-width: 0; flex: 1 1 100%; }
+  .pg-band-4 .ov-cell, .pg-band-5 .ov-cell { grid-column: auto; border-left: 0; border-top: 1px solid var(--border-subtle); }
+  .pg-band-4 .ov-cell:nth-child(-n + 2), .pg-band-5 .ov-cell:nth-child(-n + 2) { border-top: 0; }
+  .pg-band-4 .ov-cell:nth-child(even), .pg-band-5 .ov-cell:nth-child(even) { border-left: 1px solid var(--border-subtle); }
+  .pg-band-5 .ov-cell:last-child { grid-column: 1 / -1; }
+  .pg-case-head { flex-wrap: wrap; }
+}
+/* Grid items default to min-width:auto; keep long titles from widening the page */
+.pg-list, .pg-policies, .pg-cases { grid-template-columns: minmax(0, 1fr); }
+.pg-list-main { flex: 1 1 auto; }
