@@ -77,7 +77,7 @@ function renderOvAuthority(guard) {
     busy(btn, async () => {
       await api("POST", "/supervisor/kill-switch",
         { active: engage, reason: engage ? "Engaged from operations overview" : "Restored from operations overview" }, OV_KEY);
-      toast(engage ? "Kill switch engaged. Agent payout authority revoked." : "Agent authority restored.");
+      toast(engage ? "Kill switch on. Agents can't pay anything until it's turned off." : "Kill switch off. Agents can pay claims again.");
       await Promise.all([loadOverview(), loadHealth()]);
     });
   });

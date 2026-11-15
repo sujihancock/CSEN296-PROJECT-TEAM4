@@ -36,8 +36,8 @@ Designed with rich contrast, restrained neutrals, and purposeful semantic tokens
   - Background: `rgba(245, 158, 11, 0.12)`, Border: `rgba(245, 158, 11, 0.35)`, Solid/Text: `#f59e0b`
 - **Danger / Revoked / Blocked / Injection Attack**:
   - Background: `rgba(239, 68, 68, 0.12)`, Border: `rgba(239, 68, 68, 0.35)`, Solid/Text: `#ef4444`
-- **Info / ChromaDB Vector Store / Intake**:
-  - Background: `rgba(139, 92, 246, 0.12)`, Border: `rgba(139, 92, 246, 0.35)`, Solid/Text: `#8b5cf6`
+- **Info / in progress**: the accent blue (`--accent-*`).
+- Violet (`--semantic-purple-*`) stays defined but unused. Technology (ChromaDB, the LLM) gets no color of its own; color only ever means a state.
 
 ### Light Theme
 - Surface 0 (Background): `#f8fafc`
@@ -48,15 +48,13 @@ Designed with rich contrast, restrained neutrals, and purposeful semantic tokens
 - Text Muted: `#64748b`
 
 ## Component Anatomy
-1. **Header & Telemetry**:
-   - Fixed elevation (`z-index: 50`) with backdrop blur (`backdrop-filter: blur(12px)`).
-   - Real-time status indicators with glowing live status dots (`animate-pulse`).
-   - Pill tabs with seamless active indicator.
-2. **Preset Scenario Cards**:
-   - Clean interactive cards with hover elevation (`transform: translateY(-2px)`), distinct badge tagging, and price chips.
-3. **Multi-Agent Pipeline Stepper**:
-   - Step node architecture: left avatar / specialist glyph, title bar with duration/status badge, expandable details, and vector similarity bars.
-   - Status indicators: `idle` (muted slate), `active` (pulsing blue ring), `ok` (emerald), `warn` (amber), `bad` (crimson).
+1. **Header**:
+   - Solid surface bar, sticky, no blur. Row one: the wordmark (`ChangSupport` with `.AI` in tertiary), one line of agent status (dot plus text: "Agents active" or "Kill switch on"), the persona picker and the theme toggle. Row two: text tabs, current page underlined in accent. No icons in the nav, no tagline, no status pills.
+2. **Labels and headers**:
+   - Form labels and table headers are sentence case, 12–12.5px, medium weight. No uppercase tracking anywhere in the UI; status badges are the only uppercase text because they echo API values.
+3. **Sandbox**:
+   - Same skeleton as the other pages. Scenarios are plain buttons (name plus amount) with a one-sentence explanation; they only fill the form. The result is a numbered list of six steps; each number takes its step's outcome color (green, amber, red, or muted when skipped). Details (retrieved policies with match %, guardrail checks, an injection flag) sit under the step that produced them. Escalated runs end with an inline supervisor decision.
+   - No colored side stripes on cards, results or alerts: tone is a full tinted border and background, or a colored number/dot.
 4. **Data Tables**:
    - Compact table height, sticky headers, tabular figures, monospace hash truncation with click-to-copy, hover row highlights.
 5. **Human-in-the-Loop Action Center**:
@@ -65,7 +63,7 @@ Designed with rich contrast, restrained neutrals, and purposeful semantic tokens
    - State band: one surface split by hairlines into six cells (authority, 7-day spend, review queue, audit chain, reasoning engine, policy index). Each cell is a label, a 15px value with a solid state dot (no glow), and a one-line consequence. The kill switch is the only destructive control here and always asks for confirmation.
    - Working grid 3fr / 2fr: guardrail budget gauge (ticks at quarters; accent → amber at 80% → red at 100%) and case-decision mix on the left with recent cases; escalation queue, audit feed (Notable / All filter) and agent permission scopes on the right. Money-moving tools are tinted amber.
    - Panels render on their own: one failing endpoint shows an inline error in its panel only. The tab refreshes every 15s while it is visible.
-   - Header: below 1600px the workspace tabs move to their own underline-tab row under the brand bar; below 720px the header stops being sticky.
+   - Header: below 720px the header stops being sticky and the status line wraps under the wordmark.
 7. **Workspace pages (Customer, Supervisor, Policies, Audit)**:
    - Same skeleton as the overview: `.ov-head` with an "Acting as" account picker on the right, a state band of four or five cells, then the 3fr / 2fr panel grid. Page-only pieces use a `pg-` prefix.
    - Picking an account without the page's role shows an amber note explaining the 403s; each panel then shows its own inline error.

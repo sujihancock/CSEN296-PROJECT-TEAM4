@@ -186,7 +186,7 @@ function renderSuKillSwitch(guard, logs) {
     if (!confirm(msg)) return;
     busy(btn, async () => {
       await api("POST", "/supervisor/kill-switch", { active: engage, reason: reason.value.trim() }, supervisorPortalKey());
-      toast(engage ? "Kill switch engaged. Agent payout authority revoked." : "Agent authority restored.");
+      toast(engage ? "Kill switch on. Agents can't pay anything until it's turned off." : "Kill switch off. Agents can pay claims again.");
       await Promise.all([loadSupervisor(), loadHealth()]);
     });
   });
