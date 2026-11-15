@@ -1,76 +1,34 @@
-<!-- Global Application Header -->
 <header class="app-header">
   <div class="header-container">
-    <div class="header-brand">
-      <div class="brand-logo" aria-hidden="true">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-          <polyline points="9 12 11 14 15 10"/>
-        </svg>
-      </div>
-      <div class="brand-info">
-        <span class="brand-name">ChangSupport.AI</span>
-        <span class="brand-tagline">Multi-Agent Operations Cockpit</span>
-      </div>
-    </div>
+    <a class="brand-name" href="/overview">ChangSupport<span>.AI</span></a>
 
-    <!-- Live Telemetry Status Pills -->
-    <div class="header-telemetry" role="status" aria-label="System telemetry">
-      <div id="killPill" class="telemetry-pill">
-        <span class="status-dot"></span>
-        <span class="telemetry-text">Checking authority...</span>
-      </div>
-      <div id="vectorPill" class="telemetry-pill purple">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v6m0 6v6M3 12h6m6 0h6"/></svg>
-        <span>ChromaDB Vector Store</span>
-      </div>
-    </div>
+    <p id="killPill" class="hdr-status" role="status" aria-live="polite">
+      <span class="ov-dot" aria-hidden="true"></span><span>Checking agent authority…</span>
+    </p>
 
-    <!-- Segmented Navigation Bar -->
-    <nav class="nav-segmented" aria-label="Workspaces">
-      <a class="nav-item" href="/overview">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
-        <span>Overview</span>
-      </a>
-      <a class="nav-item" href="/sandbox">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        <span>Interactive Sandbox</span>
-      </a>
-      <a class="nav-item" href="/customer">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-        <span>Customer Portal</span>
-      </a>
-      <a class="nav-item" href="/supervisor">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="18" y1="8" x2="23" y2="13"/><line x1="23" y1="8" x2="18" y2="13"/></svg>
-        <span>Supervisor Queue</span>
-      </a>
-      <a class="nav-item" href="/vector-policies">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-        <span>Vector Policies</span>
-      </a>
-      <a class="nav-item" href="/audit">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-        <span>Audit Trail</span>
-      </a>
-    </nav>
-
-    <!-- Header Persona & Theme Controls -->
     <div class="header-controls">
-      <div class="persona-selector-wrap" title="Active Actor Persona">
-        <label for="role" class="visually-hidden">Actor Identity</label>
-        <select id="role" class="header-select" aria-label="Role selector">
-          <option value="customer-001-key">Customer · Alex Smith (CUST-001)</option>
-          <option value="customer-002-key">Customer · Elena Rostova (CUST-002)</option>
-          <option value="customer-003-key">Customer · Marcus Vance (CUST-003)</option>
-          <option value="customer-004-key">Customer · Raphael Kusuma (CUST-004)</option>
-          <option value="supervisor-key">Supervisor (SUP-001)</option>
-          <option value="admin-key">Admin (ADMIN-001)</option>
+      <label class="hdr-persona">Persona
+        <select id="role" class="header-select">
+          <option value="customer-001-key">Alex Smith · CUST-001</option>
+          <option value="customer-002-key">Elena Rostova · CUST-002</option>
+          <option value="customer-003-key">Marcus Vance · CUST-003</option>
+          <option value="customer-004-key">Raphael Kusuma · CUST-004</option>
+          <option value="supervisor-key">Supervisor · SUP-001</option>
+          <option value="admin-key">Admin · ADMIN-001</option>
         </select>
-      </div>
-
-      <button id="themeToggleBtn" class="icon-button" title="Toggle Color Theme" aria-label="Toggle theme">
-        <span id="themeIcon"></span>
+      </label>
+      <button id="themeToggleBtn" class="icon-button" type="button" aria-label="Switch color theme">
+        <span id="themeIcon" aria-hidden="true"></span>
       </button>
     </div>
+
+    <nav class="nav-segmented" aria-label="Workspaces">
+      <a class="nav-item" href="/overview">Overview</a>
+      <a class="nav-item" href="/sandbox">Sandbox</a>
+      <a class="nav-item" href="/customer">Customer</a>
+      <a class="nav-item" href="/supervisor">Supervisor</a>
+      <a class="nav-item" href="/vector-policies">Policies</a>
+      <a class="nav-item" href="/audit">Audit</a>
+    </nav>
   </div>
 </header>

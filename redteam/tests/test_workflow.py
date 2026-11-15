@@ -88,7 +88,7 @@ def test_ui_is_served():
             r = client.get(f"/{page}")
             assert r.status_code == 200, page
             assert "ChangSupport.AI" in r.text
-            assert "Interactive Sandbox" in r.text          # shared header was stitched in
+            assert '<nav class="nav-segmented"' in r.text   # shared header was stitched in
             assert f'aria-current="page" href="/{page}"' in r.text
             assert f"/static/js/pages/{script}" in r.text
             assert client.get(f"/static/js/pages/{script}").status_code == 200

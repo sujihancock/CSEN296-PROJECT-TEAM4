@@ -152,34 +152,14 @@ if (roleSel) {
 // ---------------------------------------------------------------- Health & Vector Status
 async function loadHealth() {
   const h = await fetch("/health").then(r => r.json()).catch(() => null);
-  const pill = $("killPill");
-  if (!h) {
-    if (pill) {
-      pill.className = "telemetry-pill revoked";
-      pill.innerHTML = `<span class="status-dot"></span><span>API Offline</span>`;
-    }
-    return null;
+  const status = $("killPill");
+  if (status) {
+    const [state, text] = !h ? ["bad", "API unreachable"]
+      : h.kill_switch_active ? ["bad", "Kill switch on · agents can't pay"]
+      : ["ok", "Agents active"];
+    status.dataset.state = state;
+    status.replaceChildren(el("span", { class: `ov-dot ${state}`, "aria-hidden": "true" }), el("span", {}, text));
   }
-  if (pill) {
-    if (h.kill_switch_active) {
-      pill.className = "telemetry-pill revoked";
-      pill.innerHTML = `<span class="status-dot"></span><span>Kill Switch: REVOKED</span>`;
-    } else {
-      pill.className = "telemetry-pill";
-      pill.innerHTML = `<span class="status-dot"></span><span>Agent Authority: Active</span>`;
-    }
-  }
-
-  // Check vector stats
-  try {
-    const vs = await api("GET", "/policies/vector-stats", null, "admin-key");
-    const vPill = $("vectorPill");
-    if (vs && vs.indexed_vectors != null && vPill) {
-      vPill.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v6m0 6v6M3 12h6m6 0h6"/></svg><span>ChromaDB: ${vs.indexed_vectors} vectors</span>`;
-      if ($("indexedCount")) $("indexedCount").textContent = `${vs.indexed_vectors} vectors in '${vs.collection}'`;
-    }
-  } catch (e) {}
-
   return h;
 }
 
