@@ -652,85 +652,92 @@
   </div>
 
   <!-- ======================================================== TAB 4: ADMIN -->
-  <div id="view-admin" hidden>
-    <div class="workbench-layout">
-      <!-- Upload & Index Policy -->
-      <section class="workbench-panel">
-        <div class="panel-header">
-          <h2 class="panel-title">Upload &amp; Index Policy</h2>
-          <span class="panel-badge purple">CHROMA DB</span>
-        </div>
-        <div class="form-group">
-          <label for="adminAccount">Signed in as (demo account)</label>
-          <select id="adminAccount" aria-label="Admin portal account">
-            <option value="admin-key" selected>Jeromy Chang (ADMIN-001)</option>
-            <option value="customer-001-key">Customer · Alex Smith (CUST-001)</option>
-            <option value="customer-002-key">Customer · Elena Rostova (CUST-002)</option>
-            <option value="customer-003-key">Customer · Marcus Vance (CUST-003)</option>
-            <option value="customer-004-key">Customer · Raphael Kusuma (CUST-004)</option>
-            <option value="supervisor-key">Jeromy Chang (SUP-001)</option>
-          </select>
-          <p class="muted" style="margin:6px 0 12px;font-size:12px">Pick a customer/supervisor account to verify admin-only endpoints reject (403).</p>
-        </div>
-        <form id="policyForm" class="form-vertical">
-          <div class="form-group">
-            <label for="pId">Policy ID</label>
-            <input id="pId" required placeholder="e.g. POL-005" class="font-mono">
-          </div>
-          <div class="form-group">
-            <label for="pTitle">Policy Title</label>
-            <input id="pTitle" required placeholder="e.g. Extended Holiday Return Policy">
-          </div>
-          <div class="form-group">
-            <label for="pContent">Policy Content (Embedded via ONNX)</label>
-            <textarea id="pContent" required placeholder="Authoritative policy rules and refund constraints..."></textarea>
-          </div>
-          <div class="form-group">
-            <label for="pTags">Search Keywords &amp; Tags</label>
-            <input id="pTags" placeholder="e.g. holiday return physical electronics">
-          </div>
-          <div class="form-actions">
-            <button class="btn btn-primary" type="submit">Index into ChromaDB</button>
-          </div>
-        </form>
-      </section>
-
-      <!-- Vector Store Status & Reset Utility -->
-      <section class="workbench-panel">
-        <div class="panel-header">
-          <h2 class="panel-title">Vector Store Status</h2>
-          <span class="panel-badge">ONNX EMBEDDINGS</span>
-        </div>
-        <div id="vectorStats" class="telemetry-metrics">
-          <div class="metric-row"><span class="metric-label">Vector Engine</span><span class="font-mono">ChromaDB (Embedded ONNX)</span></div>
-          <div class="metric-row"><span class="metric-label">Embedding Model</span><span class="font-mono">all-MiniLM-L6-v2 (384d)</span></div>
-          <div class="metric-row"><span class="metric-label">Indexed Policy Chunks</span><span id="indexedCount" class="font-mono font-semibold">—</span></div>
-        </div>
-        <div class="danger-zone">
-          <div class="danger-title">Database Reset Utility</div>
-          <div class="danger-description">Restores customers, balances, orders, and seed policies. Clears and re-indexes ChromaDB vector embeddings.</div>
-          <button id="resetBtn" class="btn btn-danger">Reset All Demo Data</button>
-        </div>
-      </section>
+  <div id="view-admin" class="ov" hidden>
+    <div class="ov-head">
+      <div class="ov-head-title">
+        <h1>Policy index</h1>
+        <p class="ov-head-meta">
+          <span>Refund policies the Refunds agent retrieves from ChromaDB before it proposes a decision</span>
+          <span class="ov-sep" aria-hidden="true"></span>
+          <span id="adUpdated" aria-live="polite">Loading…</span>
+        </p>
+      </div>
+      <div class="pg-head-actions">
+        <label class="pg-actor">Acting as
+          <select id="adminAccount"></select>
+        </label>
+        <button type="button" class="btn btn-sm btn-secondary" id="adRefresh">Refresh</button>
+      </div>
     </div>
 
-    <!-- Indexed Policies Table -->
-    <section class="data-section">
-      <div class="panel-header">
-        <h2 class="panel-title">Indexed Refund Policies</h2>
-        <span class="panel-subtitle">ChromaDB &amp; SQLite Dual Store</span>
-      </div>
-      <div class="table-container" id="policies"></div>
+    <div id="adRoleNote" class="pg-role-note" hidden></div>
+
+    <section class="ov-band pg-band-4" aria-label="Index state">
+      <div class="ov-cell" id="adVectorCell"><span class="ov-cell-label">Indexed chunks</span><span class="ov-skel" style="width:50%"></span></div>
+      <div class="ov-cell" id="adPolicyCell"><span class="ov-cell-label">Policies</span><span class="ov-skel" style="width:40%"></span></div>
+      <div class="ov-cell" id="adModelCell"><span class="ov-cell-label">Embedding model</span><span class="ov-skel" style="width:60%"></span></div>
+      <div class="ov-cell" id="adMailCell"><span class="ov-cell-label">Emails dispatched</span><span class="ov-skel" style="width:40%"></span></div>
     </section>
 
-    <!-- Mock Email Provider Outbox Table -->
-    <section class="data-section" style="margin-top:24px">
-      <div class="panel-header">
-        <h2 class="panel-title">Mock Email Service Provider Outbox</h2>
-        <span class="panel-subtitle">Simulated External ESP Dispatch Telemetry</span>
+    <div class="ov-grid">
+      <div class="ov-col">
+        <section class="ov-panel" aria-labelledby="adLibTitle">
+          <header class="ov-panel-head">
+            <h2 id="adLibTitle">Policy library</h2>
+            <input type="search" id="adSearch" class="pg-search" placeholder="Filter by ID, title, text or tag" aria-label="Filter policies">
+          </header>
+          <ul id="policies" class="pg-policies"><li><span class="ov-skel ov-skel--block"></span></li></ul>
+        </section>
+
+        <section class="ov-panel" aria-labelledby="adOutboxTitle">
+          <header class="ov-panel-head">
+            <h2 id="adOutboxTitle">Email outbox</h2>
+            <span class="ov-panel-note">Mock email provider · nothing leaves this machine</span>
+          </header>
+          <div id="emailOutbox"><span class="ov-skel ov-skel--block"></span></div>
+        </section>
       </div>
-      <div class="table-container" id="emailOutbox"></div>
-    </section>
+
+      <div class="ov-col">
+        <section class="ov-panel" aria-labelledby="adFormTitle">
+          <header class="ov-panel-head">
+            <h2 id="adFormTitle">Index a policy</h2>
+            <span class="ov-panel-note">SQLite + ChromaDB</span>
+          </header>
+          <form id="policyForm" class="pg-form">
+            <div class="form-group">
+              <label for="pId">Policy ID</label>
+              <input id="pId" required placeholder="POL-005" class="font-mono" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="form-group">
+              <label for="pTitle">Title</label>
+              <input id="pTitle" required placeholder="Extended holiday returns">
+            </div>
+            <div class="form-group">
+              <label for="pContent">Policy text</label>
+              <textarea id="pContent" required rows="5" placeholder="The rule the Refunds agent should apply, written the way you'd explain it to a new support rep."></textarea>
+            </div>
+            <div class="form-group">
+              <label for="pTags">Tags</label>
+              <input id="pTags" placeholder="holiday return physical electronics">
+            </div>
+            <ul id="adHints" class="pg-hints" aria-live="polite"></ul>
+            <div class="form-actions">
+              <button class="btn btn-primary" type="submit" id="adSubmit">Index policy</button>
+              <button class="btn btn-ghost" type="reset">Clear</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="ov-panel pg-danger" aria-labelledby="adResetTitle">
+          <header class="ov-panel-head">
+            <h2 id="adResetTitle">Reset demo data</h2>
+          </header>
+          <p class="pg-danger-text">Puts customers, balances, orders, cases, emails and the seed policies back to their starting state, and rebuilds the ChromaDB collection. The audit log is cleared too.</p>
+          <button id="resetBtn" type="button" class="btn btn-sm btn-danger">Reset all demo data</button>
+        </section>
+      </div>
+    </div>
   </div>
 
   <!-- ======================================================== TAB 5: AUDIT LOG -->
@@ -761,5 +768,6 @@
 <script src="/static/js/app.js" defer></script>
 <script src="/static/js/pages/customer.js" defer></script>
 <script src="/static/js/pages/supervisor.js" defer></script>
+<script src="/static/js/pages/policies.js" defer></script>
 </body>
 </html>

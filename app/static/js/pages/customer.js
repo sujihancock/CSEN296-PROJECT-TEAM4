@@ -25,7 +25,7 @@ async function loadCustomer() {
   const off = wrongRole("customerAccount", "customer");
   const note = $("cuRoleNote");
   note.hidden = !off;
-  if (off) note.textContent = `${off.name} · ${off.id} is not a customer, so the API rejects every request on this page with 403. That is the role check doing its job.`;
+  if (off) note.textContent = `${off.name} · ${off.id} is not a customer, so the API rejects every request on this page with 403. Submitting a claim shows the same rejection.`;
 
   try {
     const [orders, cases, emails, customers] = await Promise.all([
@@ -82,13 +82,11 @@ function renderCuOrderSelect(orders) {
   if (!orders.ok) {
     sel.replaceChildren(el("option", { value: "" }, "Orders unavailable"));
     sel.disabled = true;
-    $("cuSubmit").disabled = true;
     fill("cuOrderFacts");
     fill("cuHints");
     return;
   }
   sel.disabled = false;
-  $("cuSubmit").disabled = false;
   sel.replaceChildren(...orders.v.map(o => el("option", { value: o.id }, `${o.id} · ${o.product_name} · ${money(o.amount)}`)));
   if (orders.v.some(o => o.id === prev)) { sel.value = prev; renderCuFacts(); } else cuSyncAmount();
 }
