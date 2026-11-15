@@ -741,23 +741,50 @@
   </div>
 
   <!-- ======================================================== TAB 5: AUDIT LOG -->
-  <div id="view-audit" hidden>
-    <section class="data-section">
-      <div class="panel-header">
-        <div class="panel-title-group">
-          <h2 class="panel-title">Cryptographic SHA-256 Audit Trail</h2>
-          <span class="panel-subtitle">Tamper-evident append-only ledger</span>
-        </div>
-        <div id="chainPill" class="chain-badge"></div>
-        <div class="panel-actions">
-          <button class="btn btn-sm btn-secondary" id="verifyBtn">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-            Verify Hash Chain
-          </button>
-          <button class="btn btn-sm btn-ghost" id="auditRefresh">Refresh</button>
-        </div>
+  <div id="view-audit" class="ov" hidden>
+    <div class="ov-head">
+      <div class="ov-head-title">
+        <h1>Audit trail</h1>
+        <p class="ov-head-meta">
+          <span>Append-only, SHA-256 hash-chained record of every tool call and decision</span>
+          <span class="ov-sep" aria-hidden="true"></span>
+          <span id="auUpdated" aria-live="polite">Loading…</span>
+        </p>
       </div>
-      <div class="table-container scrollable-table" id="audit"></div>
+      <div class="pg-head-actions">
+        <label class="pg-actor">Acting as
+          <select id="auditAccount"></select>
+        </label>
+        <button type="button" class="btn btn-sm btn-secondary" id="verifyBtn">Verify chain</button>
+        <button type="button" class="btn btn-sm btn-ghost" id="auditRefresh">Refresh</button>
+      </div>
+    </div>
+
+    <div id="auRoleNote" class="pg-role-note" hidden></div>
+    <div id="auTamper" class="pg-role-note pg-tamper" role="alert" hidden></div>
+
+    <section class="ov-band pg-band-5" aria-label="Ledger state">
+      <div class="ov-cell" id="auChainCell"><span class="ov-cell-label">Chain integrity</span><span class="ov-skel" style="width:50%"></span></div>
+      <div class="ov-cell" id="auEntriesCell"><span class="ov-cell-label">Entries</span><span class="ov-skel" style="width:40%"></span></div>
+      <div class="ov-cell" id="auBlockedCell"><span class="ov-cell-label">Blocked</span><span class="ov-skel" style="width:30%"></span></div>
+      <div class="ov-cell" id="auEscalatedCell"><span class="ov-cell-label">Escalated</span><span class="ov-skel" style="width:30%"></span></div>
+      <div class="ov-cell" id="auLastCell"><span class="ov-cell-label">Latest event</span><span class="ov-skel" style="width:60%"></span></div>
+    </section>
+
+    <section class="ov-panel" aria-labelledby="auLedgerTitle">
+      <header class="ov-panel-head pg-ledger-head">
+        <h2 id="auLedgerTitle">Ledger</h2>
+        <div class="ov-seg" role="group" aria-label="Filter ledger">
+          <button type="button" class="ov-seg-btn" data-ledger-filter="all" aria-pressed="true">All</button>
+          <button type="button" class="ov-seg-btn" data-ledger-filter="notable" aria-pressed="false">Notable</button>
+          <button type="button" class="ov-seg-btn" data-ledger-filter="BLOCKED" aria-pressed="false">Blocked</button>
+          <button type="button" class="ov-seg-btn" data-ledger-filter="ESCALATED" aria-pressed="false">Escalated</button>
+          <button type="button" class="ov-seg-btn" data-ledger-filter="tools" aria-pressed="false">Tool calls</button>
+        </div>
+        <input type="search" id="auSearch" class="pg-search" placeholder="Filter by actor, action, claim or hash" aria-label="Search the ledger">
+        <span class="ov-panel-note" id="auCount" aria-live="polite"></span>
+      </header>
+      <div id="audit"><span class="ov-skel ov-skel--block"></span></div>
     </section>
   </div>
 </main>
@@ -769,5 +796,6 @@
 <script src="/static/js/pages/customer.js" defer></script>
 <script src="/static/js/pages/supervisor.js" defer></script>
 <script src="/static/js/pages/policies.js" defer></script>
+<script src="/static/js/pages/audit.js" defer></script>
 </body>
 </html>

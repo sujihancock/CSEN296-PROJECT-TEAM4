@@ -59,14 +59,14 @@ const ACCOUNTS = [
 const ROLE_LABEL = { customer: "Customer", supervisor: "Supervisor", admin: "Admin" };
 const accountByKey = (key) => ACCOUNTS.find(a => a.key === key);
 
-function fillAccountSelect(id, role) {
+function fillAccountSelect(id, role, allowed = [role], allowedLabel = `${ROLE_LABEL[role]} accounts`) {
   const sel = $(id);
   if (!sel) return;
   const prev = sel.value;
   const opt = (a) => el("option", { value: a.key }, `${a.name} · ${a.id}`);
   sel.replaceChildren(
-    el("optgroup", { label: `${ROLE_LABEL[role]} accounts` }, ACCOUNTS.filter(a => a.role === role).map(opt)),
-    el("optgroup", { label: "Other roles · expect 403" }, ACCOUNTS.filter(a => a.role !== role).map(opt)));
+    el("optgroup", { label: allowedLabel }, ACCOUNTS.filter(a => allowed.includes(a.role)).map(opt)),
+    el("optgroup", { label: "Other roles · expect 403" }, ACCOUNTS.filter(a => !allowed.includes(a.role)).map(opt)));
   if (ACCOUNTS.some(a => a.key === prev)) sel.value = prev;
 }
 
@@ -579,70 +579,6 @@ async function resetDemoData(keyOverride) {
   await loadHealth();
 }
 window.resetDemoData = resetDemoData;
-
-function auditReaderKey() {
-  if (currentTab === "admin") return adminPortalKey();
-  if (currentTab === "supervisor") return supervisorPortalKey();
-  // Audit tab / sandbox helpers: prefer supervisor, fall back to admin
-  return supervisorPortalKey();
-}
-
-// ---------------------------------------------------------------- Cryptographic Audit Log
-async function loadAudit() {
-  let logs;
-  try {
-    logs = await api("GET", "/logs", null, auditReaderKey());
-  } catch (e) {
-    fill("audit", el("div", { class: "empty", style: "padding:20px;text-align:center;color:var(--text-tertiary)" }, e.message));
-    fill("auditSupervisor", el("div", { class: "empty", style: "padding:20px;text-align:center;color:var(--text-tertiary)" }, e.message));
-    return;
-  }
-  logs.reverse();
-  const renderAuditRows = (containerId) => {
-    fill(containerId, table([
-      { label: "#", key: "id", num: true },
-      { label: "Timestamp (UTC)", key: "ts", mono: true },
-      { label: "Actor", key: "actor", render: r => el("span", { class: "font-mono" }, r.actor) },
-      { label: "Action", key: "action", mono: true },
-      { label: "Status", render: r => badge(r.status) },
-      { label: "Case ID", render: r => r.case_id ? el("span", { class: "font-mono" }, r.case_id) : "—", mono: true },
-      { label: "SHA-256 Hash", render: r => el("span", {
-          class: "font-mono muted copy-chip",
-          title: `Full hash: ${r.hash} (click to copy)`,
-          onclick: () => { navigator.clipboard.writeText(r.hash); toast("Copied hash to clipboard!"); }
-        }, (r.hash || "").slice(0, 10) + "…")
-      },
-      { label: "Details / Reason", render: r => r.details.code && r.details.code !== "OK" ? r.details.code : (r.details.reason || JSON.stringify(r.details)) },
-    ], logs, "No audit trail entries found."));
-  };
-  renderAuditRows("audit");
-  renderAuditRows("auditSupervisor");
-}
-
-async function verifyAuditChain(pillId) {
-  try {
-    const v = await api("GET", "/logs/verify", null, auditReaderKey());
-    fill(pillId, v.valid ? badge("ALLOWED") : badge("BLOCKED"),
-      el("span", { class: "muted", style: "font-size:12px;margin-left:6px" },
-        v.valid ? `${v.entries} entries · SHA-256 chain verified intact` : `Tampering detected at entry #${v.first_bad_id}`));
-  } catch (e) {
-    fill(pillId, badge("BLOCKED"), el("span", { class: "muted", style: "font-size:12px;margin-left:6px" }, e.message));
-    toast(e.message);
-  }
-}
-const vBtn = $("verifyBtn");
-if (vBtn) vBtn.addEventListener("click", () => verifyAuditChain("chainPill"));
-const vBtnSup = $("verifyBtnSupervisor");
-if (vBtnSup) vBtnSup.addEventListener("click", () => verifyAuditChain("chainPillSupervisor"));
-const aRef = $("auditRefresh");
-if (aRef) aRef.addEventListener("click", loadAudit);
-const aRefSup = $("auditRefreshSupervisor");
-if (aRefSup) aRefSup.addEventListener("click", loadAudit);
-
-document.addEventListener("click", (ev) => {
-  if (ev.target.dataset.refresh === "supervisor") busy(ev.target, loadSupervisor);
-});
-
 
 // ---------------------------------------------------------------- Operations Overview
 // Read-only supervisor view of system state. Reads with the supervisor key,
