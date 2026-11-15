@@ -1,4 +1,5 @@
 "use strict";
+const adminPortalKey = () => portalKey("adminAccount", "admin-key");
 // ---------------------------------------------------------------- Policy index (admin)
 // Policies are dual-written to SQLite and ChromaDB. The Refunds agent
 // retrieves from ChromaDB, so whatever is indexed here can steer its proposal
@@ -147,7 +148,5 @@ $("policyForm").addEventListener("submit", (ev) => {
 });
 
 $("resetBtn").addEventListener("click", (ev) => busy(ev.currentTarget, async () => {
-  await resetDemoData(adminPortalKey());
-  rtState.clear();
-  await loadAdmin();
+  if (await resetDemoData(adminPortalKey())) await loadAdmin();
 }));

@@ -1,4 +1,5 @@
 "use strict";
+const customerPortalKey = () => portalKey("customerAccount", "customer-001-key");
 // ---------------------------------------------------------------- Customer portal
 // Everything here is read with the picked customer's own key, so the page only
 // ever shows that tenant's orders, cases and email. Pick a non-customer

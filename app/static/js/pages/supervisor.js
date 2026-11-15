@@ -1,4 +1,5 @@
 "use strict";
+const supervisorPortalKey = () => portalKey("supervisorAccount", "supervisor-key");
 // ---------------------------------------------------------------- Supervisor queue
 // Human-in-the-loop work: decide escalated claims, operate the kill switch,
 // and run the red-team harness. Reads and writes with the picked account's
