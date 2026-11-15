@@ -24,50 +24,45 @@
       </div>
     </div>
 
-    <section class="ov-panel" aria-labelledby="sbScenarioTitle">
-      <header class="ov-panel-head">
-        <h2 id="sbScenarioTitle">Scenarios</h2>
-        <span class="ov-panel-note">Fills in the claim below. Nothing runs until you press Run claim.</span>
-      </header>
-      <div class="sb-scenarios" role="group" aria-label="Scenarios">
-        <button type="button" class="sb-scenario" data-scenario="standard" aria-pressed="false">
-          <span class="sb-scenario-name">Standard refund</span><span class="sb-scenario-amt">$45</span>
-        </button>
-        <button type="button" class="sb-scenario" data-scenario="high_value" aria-pressed="false">
-          <span class="sb-scenario-name">Over the $100 cap</span><span class="sb-scenario-amt">$450</span>
-        </button>
-        <button type="button" class="sb-scenario" data-scenario="digital" aria-pressed="false">
-          <span class="sb-scenario-name">Digital download</span><span class="sb-scenario-amt">$30</span>
-        </button>
-        <button type="button" class="sb-scenario" data-scenario="injection" aria-pressed="false">
-          <span class="sb-scenario-name">Prompt injection</span><span class="sb-scenario-amt">$450</span>
-        </button>
-        <button type="button" class="sb-scenario" data-scenario="revocation" aria-pressed="false">
-          <span class="sb-scenario-name">Kill switch on</span><span class="sb-scenario-amt">$45</span>
-        </button>
-      </div>
-      <p id="scenarioDescription" class="sb-scenario-desc">Pick one to see what it tests.</p>
-    </section>
-
     <div class="ov-grid sb-grid">
-      <section class="ov-panel" aria-labelledby="sbClaimTitle">
+      <section class="ov-panel sb-claim" aria-labelledby="sbClaimTitle">
         <header class="ov-panel-head">
           <h2 id="sbClaimTitle">Claim</h2>
         </header>
+
+        <div class="sb-scenario-block">
+          <p class="sb-label" id="sbScenarioLabel">Start from a scenario</p>
+          <div class="sb-scenarios" role="group" aria-labelledby="sbScenarioLabel">
+            <button type="button" class="sb-scenario" data-scenario="standard" aria-pressed="false">
+              <span class="sb-scenario-name">Standard refund</span><span class="sb-scenario-amt">$45</span>
+            </button>
+            <button type="button" class="sb-scenario" data-scenario="high_value" aria-pressed="false">
+              <span class="sb-scenario-name">Over the $100 cap</span><span class="sb-scenario-amt">$450</span>
+            </button>
+            <button type="button" class="sb-scenario" data-scenario="digital" aria-pressed="false">
+              <span class="sb-scenario-name">Digital download</span><span class="sb-scenario-amt">$30</span>
+            </button>
+            <button type="button" class="sb-scenario" data-scenario="injection" aria-pressed="false">
+              <span class="sb-scenario-name">Prompt injection</span><span class="sb-scenario-amt">$450</span>
+            </button>
+            <button type="button" class="sb-scenario" data-scenario="revocation" aria-pressed="false">
+              <span class="sb-scenario-name">Kill switch on</span><span class="sb-scenario-amt">$45</span>
+            </button>
+          </div>
+          <p id="scenarioDescription" class="sb-scenario-desc" aria-live="polite">Each one fills in the form below. Nothing runs until you press Run claim.</p>
+        </div>
+
         <form id="sandboxForm" class="pg-form">
           <div class="form-group">
             <label for="sbCustomer">Customer</label>
-            <select id="sbCustomer">
+            <select id="sbCustomer" aria-describedby="sbBalance">
               <option value="customer-001-key" data-id="CUST-001">Alex Smith · CUST-001</option>
               <option value="customer-002-key" data-id="CUST-002">Elena Rostova · CUST-002</option>
               <option value="customer-003-key" data-id="CUST-003">Marcus Vance · CUST-003</option>
               <option value="customer-004-key" data-id="CUST-004">Raphael Kusuma · CUST-004</option>
             </select>
+            <p class="sb-hint" id="sbBalance">Bank balance <span id="sbBankBalance" class="font-mono">—</span></p>
           </div>
-          <div class="pg-facts"><dl>
-            <div class="pg-fact"><dt>Bank balance</dt><dd id="sbBankBalance" class="font-mono">—</dd></div>
-            <div class="pg-fact sb-fact-wide"><dt>Latest email</dt><dd id="sbLatestEmail">—</dd></div>
-          </dl></div>
           <div class="form-group">
             <label for="sbOrder">Order</label>
             <select id="sbOrder" required></select>
@@ -89,17 +84,17 @@
         </form>
       </section>
 
-      <section class="ov-panel" aria-labelledby="sbPipeTitle">
+      <section class="ov-panel sb-result" aria-labelledby="sbPipeTitle">
         <header class="ov-panel-head">
           <h2 id="sbPipeTitle">What happened</h2>
-          <div id="pipelineStatusBadge"></div>
+          <span id="pipelineStatusBadge" class="ov-panel-note" aria-live="polite"></span>
         </header>
         <div id="pipelineEmpty" class="ov-empty">
           <p>Nothing has run yet.</p>
-          <p>Run a claim and each step appears here: the agent that handled it, what it decided, and whether a guardrail stepped in.</p>
+          <p>Pick a scenario or write your own claim, then press Run claim. The outcome shows here first, followed by what each agent and guardrail did.</p>
         </div>
-        <ol id="pipelineWrap" class="sb-steps" hidden></ol>
         <div id="outcomeBox"></div>
+        <ol id="pipelineWrap" class="sb-steps" hidden></ol>
       </section>
     </div>
   </div>

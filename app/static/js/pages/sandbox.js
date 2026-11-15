@@ -41,19 +41,17 @@ async function loadSandbox() {
   const custSel = $("sbCustomer");
   const custKey = custSel.value;
   try {
-    const [orders, customers, emails] = await Promise.all([
+    const [orders, customers] = await Promise.all([
       api("GET", "/me/orders", null, custKey),
       api("GET", "/demo/customers", null, custKey),
-      api("GET", "/me/emails", null, custKey),
     ]);
     sandboxOrders = orders;
     const me = customers.find(c => c.id === custSel.selectedOptions[0]?.dataset.id);
     $("sbBankBalance").textContent = me ? money(me.bank_balance) : "—";
-    $("sbLatestEmail").textContent = emails.length ? emails[0].subject : "None yet";
 
     const sel = $("sbOrder");
     const prev = sel.value;
-    sel.replaceChildren(...orders.map(o => el("option", { value: o.id }, `${o.id} · ${o.product_name} · ${money(o.amount)}`)));
+    sel.replaceChildren(...orders.map(o => el("option", { value: o.id }, `${o.id} · ${money(o.amount)} · ${o.product_name}`)));
     if (orders.some(o => o.id === prev)) sel.value = prev; else syncSandboxAmount();
   } catch (e) {
     toast(e.message);
@@ -159,11 +157,12 @@ function stepResults(r) {
 
   const g = r.guardrail;
   const overCap = g && /CAP|LIMIT/.test(g.code || "");
-  const check = (label, ok, text) => el("div", { class: `sb-check ${ok ? "ok" : "bad"}` }, el("dt", {}, label), el("dd", {}, text));
+  // When the kill switch stops the claim first, the other checks never ran.
+  const check = (label, state, text) => el("div", { class: `sb-check ${state}` }, el("dt", {}, label), el("dd", {}, text));
   const checks = el("dl", { class: "sb-checks" },
-    check("Per-claim cap", !overCap, overCap ? "Over $100" : "Within $100"),
-    check("Kill switch", !revoked, revoked ? "On, fail closed" : "Off"),
-    check("Order ownership", !!r.order, r.order ? "Verified" : "Not verified"),
+    check("Kill switch", revoked ? "bad" : "ok", revoked ? "On, fail closed" : "Off"),
+    revoked ? check("Per-claim cap", "skip", "Not checked") : check("Per-claim cap", overCap ? "bad" : "ok", overCap ? "Over $100" : "Within $100"),
+    revoked ? check("Order ownership", "skip", "Not checked") : check("Order ownership", r.order ? "ok" : "bad", r.order ? "Verified" : "Not verified"),
     g ? el("p", { class: "sb-note" }, "Rule ", el("code", {}, g.code), ` · ${g.verdict}`) : null);
   const guardState = { APPROVED: "ok", ESCALATED: "warn" }[status] || "bad";
   const guardText = {
@@ -232,7 +231,8 @@ $("sandboxForm").addEventListener("submit", (ev) => {
   ev.preventDefault();
   busy($("sbSubmitBtn"), async () => {
     fill("outcomeBox");
-    fill("pipelineStatusBadge", el("span", { class: "ov-panel-note" }, "Running…"));
+    $("pipelineStatusBadge").textContent = "Running…";
+    $("pipelineEmpty").hidden = true;
     renderSteps(null);
     currentAmount = parseFloat($("sbAmount").value);
     let res;
@@ -242,16 +242,18 @@ $("sandboxForm").addEventListener("submit", (ev) => {
         data: { order_id: $("sbOrder").value, amount: parseFloat($("sbAmount").value), reason: $("sbReason").value },
       }, $("sbCustomer").value)).result;
     } catch (err) {
-      fill("pipelineStatusBadge", badge("BLOCKED"));
+      $("pipelineStatusBadge").textContent = "";
       $("pipelineWrap").hidden = true;
       $("pipelineEmpty").hidden = false;
       fill("pipelineEmpty", el("p", { class: "ov-error" }, err.message));
       return;
     }
     currentCaseId = res.case_id;
-    fill("pipelineStatusBadge", badge(res.status));
-    renderSteps(stepResults(res));
+    $("pipelineStatusBadge").textContent = "";
     renderOutcome(res);
+    renderSteps(stepResults(res));
+    // Stacked layout: the result sits below the form, so bring it into view.
+    if (window.matchMedia("(max-width: 860px)").matches) $("sbPipeTitle").scrollIntoView({ behavior: "smooth", block: "start" });
     await Promise.all([loadSandbox(), loadHealth()]);
   });
 });
@@ -260,11 +262,11 @@ async function sandboxReset() {
   if (!(await resetDemoData("admin-key"))) return;
   currentCaseId = null;
   fill("outcomeBox");
-  fill("pipelineStatusBadge");
+  $("pipelineStatusBadge").textContent = "";
   $("pipelineWrap").hidden = true;
   $("pipelineEmpty").hidden = false;
   fill("pipelineEmpty", el("p", {}, "Nothing has run yet."),
-    el("p", {}, "Run a claim and each step appears here: the agent that handled it, what it decided, and whether a guardrail stepped in."));
+    el("p", {}, "Pick a scenario or write your own claim, then press Run claim. The outcome shows here first, followed by what each agent and guardrail did."));
   await loadSandbox();
 }
 

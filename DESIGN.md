@@ -53,7 +53,9 @@ Designed with rich contrast, restrained neutrals, and purposeful semantic tokens
 2. **Labels and headers**:
    - Form labels and table headers are sentence case, 12–12.5px, medium weight. No uppercase tracking anywhere in the UI; status badges are the only uppercase text because they echo API values.
 3. **Sandbox**:
-   - Same skeleton as the other pages. Scenarios are plain buttons (name plus amount) with a one-sentence explanation; they only fill the form. The result is a numbered list of six steps; each number takes its step's outcome color (green, amber, red, or muted when skipped). Details (retrieved policies with match %, guardrail checks, an injection flag) sit under the step that produced them. Escalated runs end with an inline supervisor decision.
+   - Two columns: the claim (5fr, sticky on screens at least 820px tall) and "What happened" (7fr). Stacks only below 860px, and then scrolls the result into view after a run.
+   - Scenarios live at the top of the claim panel as plain buttons (name plus amount) with a one-sentence explanation; they only fill the form. The customer's bank balance is a hint under the Customer field. Order options read `ID · price · product` so the price survives truncation.
+   - The outcome card comes first (with the inline supervisor decision for escalated runs), then a numbered list of six steps; each number takes its step's outcome color, or muted when skipped. Guardrail checks that never ran (the kill switch stopped the claim first) say "Not checked" instead of pass/fail.
    - No colored side stripes on cards, results or alerts: tone is a full tinted border and background, or a colored number/dot.
 4. **Data Tables**:
    - Compact table height, sticky headers, tabular figures, monospace hash truncation with click-to-copy, hover row highlights.

@@ -1,7 +1,7 @@
 "use strict";
 
 const $ = (id) => document.getElementById(id);
-const money = (n) => (n == null || isNaN(n)) ? "—" : `$${Number(n).toFixed(2)}`;
+const money = (n) => (n == null || isNaN(n)) ? "—" : `$${Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 function el(tag, attrs, ...children) {
   const node = document.createElement(tag);
