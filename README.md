@@ -34,7 +34,7 @@ pip install -r requirements.txt
 ./start.sh            # or: uvicorn app.main:app --reload --port 8000
 ```
 
-- Dashboard: <http://localhost:8000/>. Pick the Customer, Supervisor or Admin role. The **🧪 Interactive Sandbox** has one-click presets (standard refund, high-value escalation, policy denial, prompt injection) and shows the multi-agent pipeline as it runs.
+- Dashboard: <http://localhost:8000/>. Each workspace has its own page. The **Sandbox** (`/sandbox`) has one-click presets (standard refund, high-value escalation, policy denial, prompt injection) and shows the multi-agent pipeline as it runs.
 - API docs: <http://localhost:8000/docs>
 - Tests: `./start.sh test` (output saved to `redteam/test_results.txt`)
 - Full scripted demo and red team suites: `./start.sh demo` (output saved to `redteam/demo_results.txt`)
