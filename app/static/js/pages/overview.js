@@ -279,11 +279,13 @@ if (ovRefreshBtn) ovRefreshBtn.addEventListener("click", () => busy(ovRefreshBtn
 function ovTick() {
   clearTimeout(ovTimer);
   ovTimer = setTimeout(async () => {
-    if (currentTab === "overview" && !document.hidden) await loadOverview();
+    if (!document.hidden) await loadOverview();
     ovTick();
   }, OV_REFRESH_MS);
 }
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden && currentTab === "overview") loadOverview();
+  if (!document.hidden) loadOverview();
 });
 ovTick();
+
+loadOverview();

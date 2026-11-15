@@ -12,7 +12,7 @@ from typing import Any, Dict, Iterator, Optional
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -84,12 +84,38 @@ if (STATIC_DIR / "js").exists():
     app.mount("/js", StaticFiles(directory=STATIC_DIR / "js"), name="js")
 
 
+# --------------------------------------------------------------------------
+# Dashboard pages. Each workspace is its own page at its own URL; the shared
+# header (partials/header.html) is stitched in here and the current page's
+# nav link is marked. Persona-based page locking would hook in at page().
+# --------------------------------------------------------------------------
+
+PAGES = ("overview", "sandbox", "customer", "supervisor", "vector-policies", "audit")
+NO_CACHE = {"Cache-Control": "no-cache, no-store, must-revalidate"}
+
+
+def _render_page(name: str) -> HTMLResponse:
+    header = (STATIC_DIR / "partials" / "header.html").read_text()
+    link = f'class="nav-item" href="/{name}"'
+    header = header.replace(link, f'class="nav-item active" aria-current="page" href="/{name}"')
+    html = (STATIC_DIR / "pages" / f"{name}.html").read_text().replace("<!-- @header -->", header)
+    return HTMLResponse(html, headers=NO_CACHE)
+
+
 @app.get("/", include_in_schema=False)
 def ui():
-    return FileResponse(
-        STATIC_DIR / "index.html",
-        headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
-    )
+    return RedirectResponse("/overview")
+
+
+def _page_route(name: str):
+    def page():
+        return _render_page(name)
+    page.__name__ = f"page_{name.replace('-', '_')}"
+    return page
+
+
+for _name in PAGES:
+    app.get(f"/{_name}", include_in_schema=False, response_class=HTMLResponse)(_page_route(_name))
 
 
 @app.get("/health")

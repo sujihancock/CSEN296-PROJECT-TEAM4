@@ -275,6 +275,7 @@ body {
   border: 1px solid var(--border-subtle);
 }
 .nav-item {
+  text-decoration: none;
   display: inline-flex;
   align-items: center;
   gap: 7px;

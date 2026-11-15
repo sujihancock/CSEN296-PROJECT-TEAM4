@@ -101,9 +101,13 @@ const themeBtn = $("themeToggleBtn");
 if (themeBtn) themeBtn.addEventListener("click", toggleTheme);
 initTheme();
 
-// ---------------------------------------------------------------- API Client & Global Role Switcher
-let apiKey = "customer-001-key";
-let currentTab = "overview";
+// ---------------------------------------------------------------- API client & header persona
+// The header persona follows you from page to page (per browser tab).
+const PERSONA_KEY = "changsupport-persona";
+function readPersona() {
+  try { return sessionStorage.getItem(PERSONA_KEY); } catch (e) { return null; }
+}
+let apiKey = (ACCOUNTS.some(a => a.key === readPersona()) && readPersona()) || "customer-001-key";
 
 function portalKey(selectId, fallback) {
   const sel = $(selectId);
@@ -131,48 +135,18 @@ async function busy(button, fn) {
   try { await fn(); } catch (e) { toast(e.message); } finally { if (button) button.disabled = false; }
 }
 
-const role = () => apiKey.startsWith("customer") ? "customer" : apiKey.split("-")[0];
-
-// Global Persona Selector in Header
+// Header persona selector
 const roleSel = $("role");
+function setPersona(key, announce) {
+  apiKey = key;
+  if (roleSel) roleSel.value = key;
+  try { sessionStorage.setItem(PERSONA_KEY, key); } catch (e) { /* private mode: persona just won't carry over */ }
+  document.dispatchEvent(new CustomEvent("persona-change", { detail: key }));
+  if (announce) toast(`Active persona: <b>${roleSel?.selectedOptions[0]?.text || key}</b>`);
+}
 if (roleSel) {
   roleSel.value = apiKey;
-  roleSel.addEventListener("change", async () => {
-    apiKey = roleSel.value;
-    const sbCust = $("sbCustomer");
-    if (sbCust && apiKey.startsWith("customer")) {
-      sbCust.value = apiKey;
-    }
-    toast(`Active persona: <b>${roleSel.selectedOptions[0]?.text || apiKey}</b>`);
-    renderTab();
-  });
-}
-
-// ---------------------------------------------------------------- Navigation
-document.querySelectorAll(".nav-item, .nav-tab").forEach(tab => {
-  tab.addEventListener("click", () => {
-    document.querySelectorAll(".nav-item, .nav-tab").forEach(t => {
-      t.classList.remove("active");
-      t.setAttribute("aria-selected", "false");
-    });
-    tab.classList.add("active");
-    tab.setAttribute("aria-selected", "true");
-    currentTab = tab.dataset.tab;
-    renderTab();
-  });
-});
-
-function renderTab() {
-  const tabs = ["overview", "sandbox", "customer", "supervisor", "admin", "audit"];
-  tabs.forEach(t => {
-    const v = $(`view-${t}`);
-    if (v) v.hidden = (t !== currentTab);
-  });
-  const loaders = { overview: "loadOverview", sandbox: "loadSandbox", customer: "loadCustomer",
-    supervisor: "loadSupervisor", admin: "loadAdmin", audit: "loadAudit" };
-  const fn = window[loaders[currentTab]];
-  if (typeof fn === "function") fn();
-  loadHealth();
+  roleSel.addEventListener("change", () => setPersona(roleSel.value, true));
 }
 
 // ---------------------------------------------------------------- Health & Vector Status
@@ -265,14 +239,10 @@ function describeAudit(e) {
   return { title, tone, note };
 }
 
-function goToTab(name) {
-  const tab = document.querySelector(`.nav-item[data-tab="${name}"]`);
-  if (tab) { tab.click(); window.scrollTo({ top: 0 }); }
-}
+// Buttons rendered by page scripts can carry data-goto="<page>" to link to another workspace.
 document.addEventListener("click", (ev) => {
   const t = ev.target.closest("[data-goto]");
-  if (t) goToTab(t.dataset.goto);
+  if (t) location.href = `/${t.dataset.goto}`;
 });
 
-// Initial boot: wait until the deferred page scripts (js/pages/*.js) have run.
-document.addEventListener("DOMContentLoaded", renderTab);
+loadHealth();

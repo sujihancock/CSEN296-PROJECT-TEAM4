@@ -150,3 +150,5 @@ $("policyForm").addEventListener("submit", (ev) => {
 $("resetBtn").addEventListener("click", (ev) => busy(ev.currentTarget, async () => {
   if (await resetDemoData(adminPortalKey())) await loadAdmin();
 }));
+
+loadAdmin();

@@ -54,8 +54,7 @@ function syncSandboxAmount() {
 const sbCustEl = $("sbCustomer");
 if (sbCustEl) {
   sbCustEl.addEventListener("change", async () => {
-    apiKey = sbCustEl.value;
-    if (roleSel) roleSel.value = apiKey;
+    setPersona(sbCustEl.value);
     await loadSandbox();
   });
 }
@@ -128,8 +127,7 @@ async function applyPreset(name) {
 
   const custEl = $("sbCustomer");
   if (custEl) custEl.value = p.customerKey;
-  if (roleSel) roleSel.value = p.customerKey;
-  apiKey = p.customerKey;
+  setPersona(p.customerKey);
 
   await loadSandbox();
   if (p.orderId && $("sbOrder")) $("sbOrder").value = p.orderId;
@@ -361,3 +359,10 @@ async function sandboxReset() {
   await loadSandbox();
 }
 window.sandboxReset = sandboxReset;
+
+// The header persona drives which customer the sandbox files claims as.
+document.addEventListener("persona-change", (ev) => {
+  if (sbCustEl && ev.detail.startsWith("customer") && sbCustEl.value !== ev.detail) { sbCustEl.value = ev.detail; loadSandbox(); }
+});
+if (sbCustEl && apiKey.startsWith("customer")) sbCustEl.value = apiKey;
+loadSandbox();

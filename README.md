@@ -75,7 +75,7 @@ flowchart TD
 | [app/retriever.py](app/retriever.py), [app/vector_store.py](app/vector_store.py) | Policy retrieval backed by ChromaDB |
 | [app/audit.py](app/audit.py) | Append-only, hash-chained audit log and chain verification |
 | [app/redteam.py](app/redteam.py) | Runs `/tests/rt-XX` attacks in a sandbox DB and writes evidence |
-| [app/static/](app/static/) | Dashboard (`index.html`, `css/`, `js/`) |
+| [app/static/](app/static/) | Dashboard: one HTML file per workspace in `pages/`, the shared header in `partials/`, `js/core.js` plus one script per page in `js/pages/`, and `css/` |
 
 ## Red teaming
 

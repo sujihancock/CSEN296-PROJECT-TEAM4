@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Supervisor Queue · ChangSupport.AI</title>
+  <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+
+<!-- @header -->
+
+<main class="app-main">
+  <div id="view-supervisor" class="ov">
+    <div class="ov-head">
+      <div class="ov-head-title">
+        <h1>Supervisor queue</h1>
+        <p class="ov-head-meta">
+          <span>Claims the guardrails held back for a human decision</span>
+          <span class="ov-sep" aria-hidden="true"></span>
+          <span id="suUpdated" aria-live="polite">Loading…</span>
+        </p>
+      </div>
+      <div class="pg-head-actions">
+        <label class="pg-actor">Acting as
+          <select id="supervisorAccount"></select>
+        </label>
+        <button type="button" class="btn btn-sm btn-secondary" id="suRefresh">Refresh</button>
+      </div>
+    </div>
+
+    <div id="suRoleNote" class="pg-role-note" hidden></div>
+
+    <section class="ov-band pg-band-4" aria-label="Review state">
+      <div class="ov-cell" id="suQueueCell"><span class="ov-cell-label">Awaiting review</span><span class="ov-skel" style="width:50%"></span></div>
+      <div class="ov-cell" id="suOldestCell"><span class="ov-cell-label">Oldest waiting</span><span class="ov-skel" style="width:40%"></span></div>
+      <div class="ov-cell" id="suDecidedCell"><span class="ov-cell-label">Decided by supervisors</span><span class="ov-skel" style="width:50%"></span></div>
+      <div class="ov-cell" id="suAuthorityCell"><span class="ov-cell-label">Agent authority</span><span class="ov-skel" style="width:60%"></span></div>
+    </section>
+
+    <div class="ov-grid">
+      <div class="ov-col">
+        <section class="ov-panel" aria-labelledby="suQueueTitle">
+          <header class="ov-panel-head">
+            <h2 id="suQueueTitle">Escalated claims</h2>
+            <span class="ov-panel-note" id="suQueueNote">Oldest first</span>
+          </header>
+          <div id="escalated"><span class="ov-skel ov-skel--block"></span></div>
+        </section>
+
+        <section class="ov-panel" aria-labelledby="suHistoryTitle">
+          <header class="ov-panel-head">
+            <h2 id="suHistoryTitle">Recent supervisor decisions</h2>
+            <span class="ov-panel-note" id="suHistoryNote">—</span>
+          </header>
+          <div id="suHistory"><span class="ov-skel ov-skel--block"></span></div>
+        </section>
+      </div>
+
+      <div class="ov-col">
+        <section class="ov-panel" aria-labelledby="suKsTitle" id="suKsPanel">
+          <header class="ov-panel-head">
+            <h2 id="suKsTitle">Kill switch</h2>
+            <span class="ov-panel-note" id="suKsNote">—</span>
+          </header>
+          <div id="suKs"><span class="ov-skel ov-skel--block"></span></div>
+        </section>
+
+        <section class="ov-panel" aria-labelledby="suLimitsTitle">
+          <header class="ov-panel-head">
+            <h2 id="suLimitsTitle">Why claims land here</h2>
+          </header>
+          <div id="suLimits"><span class="ov-skel ov-skel--block"></span></div>
+        </section>
+      </div>
+    </div>
+
+    <section class="ov-panel" aria-labelledby="rtTitle">
+      <header class="ov-panel-head">
+        <div>
+          <h2 id="rtTitle">Red-team harness</h2>
+          <p class="pg-panel-sub">Each attack runs in a throwaway sandbox database. Live data is never touched.</p>
+        </div>
+        <div class="pg-head-actions">
+          <span class="ov-panel-note" id="rtNote" aria-live="polite"></span>
+          <button type="button" class="btn btn-sm btn-primary" id="rtRunAll">Run all</button>
+        </div>
+      </header>
+      <div id="rtSummary" class="pg-rt-summary" hidden></div>
+      <div id="rtButtons" class="pg-rt-grid"></div>
+      <div id="rtResults"></div>
+    </section>
+  </div>
+</main>
+
+<!-- Accessible Live Toast -->
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="/static/js/core.js" defer></script>
+<script src="/static/js/pages/supervisor.js" defer></script>
+</body>
+</html>

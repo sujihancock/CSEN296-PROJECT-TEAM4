@@ -251,3 +251,5 @@ $("refundForm").addEventListener("submit", (ev) => {
     await Promise.all([loadCustomer(), loadHealth()]);
   });
 });
+
+loadCustomer();

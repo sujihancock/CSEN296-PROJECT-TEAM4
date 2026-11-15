@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Overview · ChangSupport.AI</title>
+  <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+
+<!-- @header -->
+
+<main class="app-main">
+  <div id="view-overview" class="ov">
+    <div class="ov-head">
+      <div class="ov-head-title">
+        <h1>Operations overview</h1>
+        <p class="ov-head-meta">
+          <span>Supervisor view · <span class="font-mono">SUP-001</span></span>
+          <span class="ov-sep" aria-hidden="true"></span>
+          <span id="ovUpdated" aria-live="polite">Loading…</span>
+        </p>
+      </div>
+      <button type="button" class="btn btn-sm btn-secondary" id="ovRefresh">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Refresh
+      </button>
+    </div>
+
+    <!-- System state band -->
+    <section class="ov-band" aria-label="System state" id="ovBand">
+      <div class="ov-cell ov-cell--authority" id="ovAuthority">
+        <span class="ov-cell-label">Agent authority</span>
+        <span class="ov-skel" style="width:70%"></span>
+      </div>
+      <div class="ov-cell" id="ovSpendCell">
+        <span class="ov-cell-label">Autonomous spend · 7d</span>
+        <span class="ov-skel" style="width:60%"></span>
+      </div>
+      <div class="ov-cell" id="ovQueueCell">
+        <span class="ov-cell-label">Awaiting review</span>
+        <span class="ov-skel" style="width:40%"></span>
+      </div>
+      <div class="ov-cell" id="ovChainCell">
+        <span class="ov-cell-label">Audit chain</span>
+        <span class="ov-skel" style="width:55%"></span>
+      </div>
+      <div class="ov-cell" id="ovLlmCell">
+        <span class="ov-cell-label">Reasoning engine</span>
+        <span class="ov-skel" style="width:50%"></span>
+      </div>
+      <div class="ov-cell" id="ovVectorCell">
+        <span class="ov-cell-label">Policy index</span>
+        <span class="ov-skel" style="width:50%"></span>
+      </div>
+    </section>
+
+    <div class="ov-grid">
+      <div class="ov-col">
+        <!-- Guardrail budget + decisions -->
+        <section class="ov-panel" aria-labelledby="ovBudgetTitle">
+          <header class="ov-panel-head">
+            <h2 id="ovBudgetTitle">Guardrail budget</h2>
+            <span class="ov-panel-note" id="ovCapNote">—</span>
+          </header>
+          <div id="ovBudget"><span class="ov-skel ov-skel--block"></span></div>
+
+          <div class="ov-divider"></div>
+
+          <header class="ov-panel-head ov-panel-head--sub">
+            <h2>Case decisions</h2>
+            <span class="ov-panel-note" id="ovDecisionNote">—</span>
+          </header>
+          <div id="ovDecisions"><span class="ov-skel ov-skel--block"></span></div>
+        </section>
+
+        <!-- Recent cases -->
+        <section class="ov-panel" aria-labelledby="ovCasesTitle">
+          <header class="ov-panel-head">
+            <h2 id="ovCasesTitle">Recent cases</h2>
+            <a class="btn btn-sm btn-ghost" href="/sandbox">Open sandbox</a>
+          </header>
+          <div id="ovCases"><span class="ov-skel ov-skel--block"></span></div>
+        </section>
+      </div>
+
+      <div class="ov-col">
+        <!-- Escalation queue -->
+        <section class="ov-panel" aria-labelledby="ovQueueTitle">
+          <header class="ov-panel-head">
+            <h2 id="ovQueueTitle">Needs a supervisor</h2>
+            <a class="btn btn-sm btn-ghost" href="/supervisor">Open queue</a>
+          </header>
+          <div id="ovQueue"><span class="ov-skel ov-skel--block"></span></div>
+        </section>
+
+        <!-- Audit feed -->
+        <section class="ov-panel" aria-labelledby="ovAuditTitle">
+          <header class="ov-panel-head">
+            <h2 id="ovAuditTitle">Audit activity</h2>
+            <div class="ov-seg" role="group" aria-label="Filter audit events">
+              <button type="button" class="ov-seg-btn" data-audit-filter="notable" aria-pressed="true">Notable</button>
+              <button type="button" class="ov-seg-btn" data-audit-filter="all" aria-pressed="false">All</button>
+            </div>
+          </header>
+          <ol id="ovAudit" class="ov-feed"><li><span class="ov-skel ov-skel--block"></span></li></ol>
+          <a class="btn btn-sm btn-ghost ov-panel-foot" href="/audit">View full ledger</a>
+        </section>
+
+        <!-- Agent scopes -->
+        <section class="ov-panel" aria-labelledby="ovScopesTitle">
+          <header class="ov-panel-head">
+            <h2 id="ovScopesTitle">Agent permission scopes</h2>
+            <span class="ov-panel-note">Least privilege</span>
+          </header>
+          <dl id="ovScopes" class="ov-scopes"><span class="ov-skel ov-skel--block"></span></dl>
+        </section>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Accessible Live Toast -->
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="/static/js/core.js" defer></script>
+<script src="/static/js/pages/overview.js" defer></script>
+</body>
+</html>

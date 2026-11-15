@@ -178,3 +178,5 @@ document.querySelectorAll("[data-ledger-filter]").forEach(b => b.addEventListene
   document.querySelectorAll("[data-ledger-filter]").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
   renderAuTable();
 }));
+
+loadAudit();

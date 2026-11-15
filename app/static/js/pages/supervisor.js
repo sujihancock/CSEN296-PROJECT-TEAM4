@@ -352,3 +352,5 @@ fillAccountSelect("supervisorAccount", "supervisor");
 $("supervisorAccount").value = "supervisor-key";
 $("supervisorAccount").addEventListener("change", () => { rtTests = null; loadSupervisor(); });
 $("suRefresh").addEventListener("click", (ev) => busy(ev.currentTarget, loadSupervisor));
+
+loadSupervisor();
