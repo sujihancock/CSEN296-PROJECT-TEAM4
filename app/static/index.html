@@ -570,71 +570,84 @@
   </div>
 
   <!-- ======================================================== TAB 3: SUPERVISOR -->
-  <div id="view-supervisor" hidden>
-    <!-- Top Telemetry & Escalation Queue -->
-    <div class="workbench-layout">
-      <section class="workbench-panel">
-        <div class="panel-header">
-          <h2 class="panel-title">Deterministic Guardrails Telemetry</h2>
-          <span class="panel-badge warning">ENFORCEMENT</span>
-        </div>
-        <div class="form-group">
-          <label for="supervisorAccount">Signed in as (demo account)</label>
-          <select id="supervisorAccount" aria-label="Supervisor portal account">
-            <option value="supervisor-key" selected>Jeromy Chang (SUP-001)</option>
-            <option value="customer-001-key">Customer · Alex Smith (CUST-001)</option>
-            <option value="customer-002-key">Customer · Elena Rostova (CUST-002)</option>
-            <option value="customer-003-key">Customer · Marcus Vance (CUST-003)</option>
-            <option value="customer-004-key">Customer · Raphael Kusuma (CUST-004)</option>
-            <option value="admin-key">Jeromy Chang (ADMIN-001)</option>
-          </select>
-          <p class="muted" style="margin:6px 0 0;font-size:12px">Pick a customer/admin account to verify supervisor-only endpoints reject (403).</p>
-        </div>
-        <div id="guardStatus" class="telemetry-metrics"></div>
-        <div class="form-group" style="margin-top:16px">
-          <label for="ksReason">Emergency Kill Switch Justification</label>
-          <input id="ksReason" class="input-text" placeholder="Audit justification (e.g. anomalous prompt patterns detected)">
-        </div>
-        <div class="form-actions">
-          <button id="ksBtn" class="btn btn-danger">Activate Kill Switch</button>
-        </div>
-      </section>
-
-      <section class="workbench-panel">
-        <div class="panel-header">
-          <h2 class="panel-title">Escalated Review Queue</h2>
-          <button class="btn btn-sm btn-secondary" data-refresh="supervisor">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-            Refresh
-          </button>
-        </div>
-        <div id="escalated" class="scrollable-list"></div>
-      </section>
+  <div id="view-supervisor" class="ov" hidden>
+    <div class="ov-head">
+      <div class="ov-head-title">
+        <h1>Supervisor queue</h1>
+        <p class="ov-head-meta">
+          <span>Claims the guardrails held back for a human decision</span>
+          <span class="ov-sep" aria-hidden="true"></span>
+          <span id="suUpdated" aria-live="polite">Loading…</span>
+        </p>
+      </div>
+      <div class="pg-head-actions">
+        <label class="pg-actor">Acting as
+          <select id="supervisorAccount"></select>
+        </label>
+        <button type="button" class="btn btn-sm btn-secondary" id="suRefresh">Refresh</button>
+      </div>
     </div>
 
-    <!-- Red-Team Attack Harness -->
-    <section class="data-section">
-      <div class="panel-header">
-        <div class="panel-title-group">
-          <h2 class="panel-title">Red-Team Attack Harness</h2>
-          <span class="panel-subtitle">Deterministic defense verification across 6 adversarial test suites</span>
-        </div>
-      </div>
-      <div class="test-runner-toolbar" id="rtButtons"></div>
-      <div id="rtResults"></div>
+    <div id="suRoleNote" class="pg-role-note" hidden></div>
+
+    <section class="ov-band pg-band-4" aria-label="Review state">
+      <div class="ov-cell" id="suQueueCell"><span class="ov-cell-label">Awaiting review</span><span class="ov-skel" style="width:50%"></span></div>
+      <div class="ov-cell" id="suOldestCell"><span class="ov-cell-label">Oldest waiting</span><span class="ov-skel" style="width:40%"></span></div>
+      <div class="ov-cell" id="suDecidedCell"><span class="ov-cell-label">Decided by supervisors</span><span class="ov-skel" style="width:50%"></span></div>
+      <div class="ov-cell" id="suAuthorityCell"><span class="ov-cell-label">Agent authority</span><span class="ov-skel" style="width:60%"></span></div>
     </section>
 
-    <!-- Shared Cryptographic Audit Trail for Supervisor -->
-    <section class="data-section" id="auditCard">
-      <div class="panel-header">
-        <h2 class="panel-title">Cryptographic SHA-256 Audit Trail</h2>
-        <div id="chainPillSupervisor" class="chain-badge"></div>
-        <div class="panel-actions">
-          <button class="btn btn-sm btn-secondary" id="verifyBtnSupervisor">Verify Chain</button>
-          <button class="btn btn-sm btn-ghost" id="auditRefreshSupervisor">Refresh</button>
-        </div>
+    <div class="ov-grid">
+      <div class="ov-col">
+        <section class="ov-panel" aria-labelledby="suQueueTitle">
+          <header class="ov-panel-head">
+            <h2 id="suQueueTitle">Escalated claims</h2>
+            <span class="ov-panel-note" id="suQueueNote">Oldest first</span>
+          </header>
+          <div id="escalated"><span class="ov-skel ov-skel--block"></span></div>
+        </section>
+
+        <section class="ov-panel" aria-labelledby="suHistoryTitle">
+          <header class="ov-panel-head">
+            <h2 id="suHistoryTitle">Recent supervisor decisions</h2>
+            <span class="ov-panel-note" id="suHistoryNote">—</span>
+          </header>
+          <div id="suHistory"><span class="ov-skel ov-skel--block"></span></div>
+        </section>
       </div>
-      <div class="table-container scrollable-table" id="auditSupervisor"></div>
+
+      <div class="ov-col">
+        <section class="ov-panel" aria-labelledby="suKsTitle" id="suKsPanel">
+          <header class="ov-panel-head">
+            <h2 id="suKsTitle">Kill switch</h2>
+            <span class="ov-panel-note" id="suKsNote">—</span>
+          </header>
+          <div id="suKs"><span class="ov-skel ov-skel--block"></span></div>
+        </section>
+
+        <section class="ov-panel" aria-labelledby="suLimitsTitle">
+          <header class="ov-panel-head">
+            <h2 id="suLimitsTitle">Why claims land here</h2>
+          </header>
+          <div id="suLimits"><span class="ov-skel ov-skel--block"></span></div>
+        </section>
+      </div>
+    </div>
+
+    <section class="ov-panel" aria-labelledby="rtTitle">
+      <header class="ov-panel-head">
+        <div>
+          <h2 id="rtTitle">Red-team harness</h2>
+          <p class="pg-panel-sub">Each attack runs in a throwaway sandbox database. Live data is never touched.</p>
+        </div>
+        <div class="pg-head-actions">
+          <span class="ov-panel-note" id="rtNote" aria-live="polite"></span>
+          <button type="button" class="btn btn-sm btn-primary" id="rtRunAll">Run all</button>
+        </div>
+      </header>
+      <div id="rtSummary" class="pg-rt-summary" hidden></div>
+      <div id="rtButtons" class="pg-rt-grid"></div>
+      <div id="rtResults"></div>
     </section>
   </div>
 
@@ -747,5 +760,6 @@
 
 <script src="/static/js/app.js" defer></script>
 <script src="/static/js/pages/customer.js" defer></script>
+<script src="/static/js/pages/supervisor.js" defer></script>
 </body>
 </html>

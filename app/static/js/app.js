@@ -174,7 +174,7 @@ function renderTab() {
   if (currentTab === "overview") loadOverview();
   if (currentTab === "sandbox") loadSandbox();
   if (currentTab === "customer") loadCustomer();
-  if (currentTab === "supervisor") { loadSupervisor(); loadRedTeamButtons(); }
+  if (currentTab === "supervisor") loadSupervisor();
   if (currentTab === "admin") loadAdmin();
   if (currentTab === "audit") loadAudit();
   loadHealth();
@@ -579,126 +579,6 @@ async function resetDemoData(keyOverride) {
   await loadHealth();
 }
 window.resetDemoData = resetDemoData;
-
-// ---------------------------------------------------------------- Supervisor Portal
-async function loadSupervisor() {
-  const key = supervisorPortalKey();
-  try {
-    const [g, cases] = await Promise.all([
-      api("GET", "/guardrails/status", null, key),
-      api("GET", "/supervisor/cases?status=ESCALATED", null, key)
-    ]);
-    const pct = Math.min(100, 100 * g.weekly_autonomous_total / g.max_weekly_autonomous_refunds);
-    fill("guardStatus",
-      el("div", { class: "metric-row" }, el("span", { class: "metric-label" }, "Kill Switch Status"), badge(g.kill_switch_active ? "REVOKED" : "ALLOWED")),
-      el("div", { class: "metric-row" }, el("span", { class: "metric-label" }, "Per-Transaction Autonomous Cap"), el("b", { class: "font-mono" }, money(g.max_autonomous_refund_per_tx))),
-      el("div", { class: "metric-row" }, el("span", { class: "metric-label" }, "Autonomous Spend (Rolling 7d)"),
-        el("b", { class: "font-mono" }, `${money(g.weekly_autonomous_total)} / ${money(g.max_weekly_autonomous_refunds)}`)),
-      el("div", { class: "meter", role: "img", "aria-label": `${pct.toFixed(0)}% of weekly cap used` },
-        el("div", { style: `width:${pct}%` })));
-
-    const btn = $("ksBtn");
-    btn.dataset.active = g.kill_switch_active ? "1" : "";
-    btn.textContent = g.kill_switch_active ? "Restore Agent Authority" : "Engage Kill Switch";
-    btn.className = g.kill_switch_active ? "btn btn-primary" : "btn btn-danger";
-
-    fill("escalated", cases.length ? cases.map(c => {
-      const comment = el("input", { class: "input-text", style: "margin:8px 0", placeholder: "Supervisor audit rationale", "aria-label": `Comment for ${c.id}` });
-      const decide = (approve) => (ev) => busy(ev.currentTarget, async () => {
-        await api("POST", `/supervisor/cases/${encodeURIComponent(c.id)}/decision`,
-          { approve, comment: comment.value }, supervisorPortalKey());
-        toast(`Case <b>${c.id}</b> ${approve ? "approved" : "denied"}`);
-        await Promise.all([loadSupervisor(), loadAudit()]);
-      });
-      return el("div", { class: "case-card" },
-        el("div", { style: "display:flex;justify-content:space-between;align-items:center;margin-bottom:6px" },
-          el("span", { class: "font-mono font-semibold" }, c.id),
-          el("span", { class: "font-mono font-semibold", style: "color:var(--text-primary)" }, money(c.amount_requested))
-        ),
-        el("p", { style: "margin:4px 0;font-size:12.5px" }, el("span", { class: "muted" }, "Customer: "), el("span", { class: "font-mono" }, c.customer_id), " · Order: ", el("span", { class: "font-mono" }, c.order_id)),
-        el("p", { style: "margin:4px 0;font-size:12.5px" }, el("span", { class: "muted" }, "Reason: "), c.reason),
-        el("p", { style: "margin:4px 0;font-size:12.5px" }, el("span", { class: "muted" }, "Guardrail Interception: "), el("span", { class: "font-mono" }, c.decision_reason || "—")),
-        comment,
-        el("div", { style: "display:flex;gap:8px;margin-top:8px" },
-          el("button", { class: "btn btn-sm btn-primary", onclick: decide(true) }, "Approve & Disburse"),
-          el("button", { class: "btn btn-sm btn-danger", onclick: decide(false) }, "Deny Claim")));
-    }) : el("div", { class: "empty", style: "padding:24px;text-align:center;color:var(--text-tertiary)" }, "No escalated cases currently waiting for human supervisor review."));
-  } catch (e) {
-    fill("guardStatus", el("div", { class: "metric-row" }, el("span", { class: "metric-label" }, "Access"), el("span", {}, e.message)));
-    fill("escalated", el("div", { class: "empty", style: "padding:24px;text-align:center;color:var(--text-tertiary)" }, e.message));
-    toast(e.message);
-  }
-}
-
-const supervisorAccountEl = $("supervisorAccount");
-if (supervisorAccountEl) {
-  supervisorAccountEl.addEventListener("change", () => {
-    rtRendered = false;
-    loadSupervisor();
-    loadRedTeamButtons();
-    loadAudit();
-  });
-}
-
-const ksBtnEl = $("ksBtn");
-if (ksBtnEl) {
-  ksBtnEl.addEventListener("click", (ev) => busy(ev.currentTarget, async () => {
-    const active = !ev.currentTarget.dataset.active;
-    await api("POST", "/supervisor/kill-switch", { active, reason: $("ksReason").value }, supervisorPortalKey());
-    $("ksReason").value = "";
-    toast(active ? "Kill switch engaged: All agent authority revoked fail-closed." : "Agent authority restored.");
-    await Promise.all([loadSupervisor(), loadHealth(), loadAudit()]);
-  }));
-}
-
-let rtRendered = false;
-async function loadRedTeamButtons() {
-  if (rtRendered) return;
-  try {
-    const tests = await api("GET", "/tests", null, supervisorPortalKey());
-    const runAll = el("button", { class: "btn btn-sm btn-primary" }, "Run All Attacks");
-    runAll.addEventListener("click", () => busy(runAll, async () => {
-      fill("rtResults");
-      for (const t of tests) await runRt(t);
-    }));
-    fill("rtButtons", runAll, tests.map(t => {
-      const b = el("button", { class: "btn btn-sm btn-secondary font-mono" }, t.toUpperCase());
-      b.addEventListener("click", () => busy(b, () => runRt(t, true)));
-      return b;
-    }));
-    rtRendered = true;
-  } catch (e) {
-    fill("rtButtons", el("div", { class: "empty", style: "padding:12px;color:var(--text-tertiary)" }, e.message));
-  }
-}
-
-async function runRt(t, replace) {
-  const r = await api("POST", `/tests/${t}`, null, supervisorPortalKey());
-  const s = r.summary;
-  const block = el("div", { style: "margin-top:20px;padding-top:16px;border-top:1px solid var(--border-subtle)" },
-    el("div", { style: "display:flex;align-items:center;justify-content:space-between;margin-bottom:10px" },
-      el("h3", { style: "margin:0;font-size:14px;font-weight:600" }, `${r.rt} · ${r.title}`),
-      el("div", { style: "display:flex;gap:6px;align-items:center" },
-        s.guardrail_failures.length
-          ? el("span", { class: "badge b-bad" }, `${s.guardrail_failures.length} guardrail failure(s)`)
-          : s.findings.length
-            ? el("span", { class: "badge b-warn" }, `${s.findings.length} finding(s)`)
-            : el("span", { class: "badge b-ok" }, "all defended"),
-        el("span", { class: "muted font-mono", style: "font-size:12px" }, `${s.defended}/${s.attacks} defended`)
-      )
-    ),
-    el("div", { class: "table-container" }, table([
-      { label: "Attack ID", key: "id", mono: true },
-      { label: "Scenario Description", key: "title" },
-      { label: "Defense Layer", render: a => a.category === "guardrail" ? "Guardrail (Deterministic)" : "LLM Policy" },
-      { label: "Outcome", render: a => badge(a.outcome) },
-      { label: "Final Status", render: a => [badge(a.final_status), a.final_code ? el("div", { class: "font-mono muted", style: "font-size:11.5px" }, a.final_code) : null] },
-      { label: "Paid Out", render: a => money(a.money_paid_out), num: true },
-    ], r.attacks)),
-    el("div", { class: "muted font-mono", style: "margin-top:8px;font-size:11.5px" }, `Evidence Path: ${r.evidence_path}`));
-  if (replace) fill("rtResults", block); else $("rtResults").append(block);
-  await loadAudit();
-}
 
 // ---------------------------------------------------------------- Admin & Vector DB
 async function loadAdmin() {
