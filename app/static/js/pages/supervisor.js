@@ -1,5 +1,4 @@
 "use strict";
-const supervisorPortalKey = () => portalKey("supervisorAccount", "supervisor-key");
 // ---------------------------------------------------------------- Supervisor queue
 // Human-in-the-loop work: decide escalated claims, operate the kill switch,
 // and run the red-team harness. Reads and writes with the picked account's
@@ -18,11 +17,8 @@ let rtRunning = false;
 async function loadSupervisor() {
   if (suLoading) return;
   suLoading = true;
-  const key = supervisorPortalKey();
-  const off = wrongRole("supervisorAccount", "supervisor");
-  const note = $("suRoleNote");
-  note.hidden = !off;
-  if (off) note.textContent = `${off.name} · ${off.id} is not a supervisor, so the API rejects these supervisor-only endpoints with 403.`;
+  const key = apiKey;
+  roleNote("suRoleNote", ["supervisor"], "Deciding claims and the kill switch are supervisor-only, so the API rejects them with 403.", "supervisor-key");
 
   try {
     const [guard, escalated, approved, denied, logs, customers] = await Promise.all([
@@ -109,7 +105,7 @@ function suCaseCard(c) {
   const age = Date.now() - (parseTs(c.created_at)?.getTime() || Date.now());
   const injected = SU_INJECTION.test(c.reason || "");
   const commentId = `suComment-${c.id}`;
-  const comment = el("textarea", { id: commentId, rows: "2", placeholder: "Why you approved or denied. Saved to the audit log and shown in the customer's email." });
+  const comment = el("textarea", { id: commentId, rows: "2", placeholder: "Why? Goes in the audit log and the customer's email" });
   const approve = el("button", { type: "button", class: "btn btn-sm btn-primary" }, `Approve and pay ${money(c.amount_requested)}`);
   const deny = el("button", { type: "button", class: "btn btn-sm btn-danger" }, "Deny");
 
@@ -122,7 +118,7 @@ function suCaseCard(c) {
       approve.disabled = deny.disabled = true;
       try {
         await api("POST", `/supervisor/cases/${encodeURIComponent(c.id)}/decision`,
-          { approve: yes, comment: comment.value.trim() }, supervisorPortalKey());
+          { approve: yes, comment: comment.value.trim() }, apiKey);
         toast(`${c.id} ${yes ? `approved · ${money(c.amount_requested)} paid` : "denied"}`);
         await Promise.all([loadSupervisor(), loadHealth()]);
       } finally {
@@ -185,7 +181,7 @@ function renderSuKillSwitch(guard, logs) {
       : "Restore agent authority?\n\nAgents resume autonomous refunds within the $100 per-transaction and $500 weekly caps.";
     if (!confirm(msg)) return;
     busy(btn, async () => {
-      await api("POST", "/supervisor/kill-switch", { active: engage, reason: reason.value.trim() }, supervisorPortalKey());
+      await api("POST", "/supervisor/kill-switch", { active: engage, reason: reason.value.trim() }, apiKey);
       toast(engage ? "Kill switch on. Agents can't pay anything until it's turned off." : "Kill switch off. Agents can pay claims again.");
       await Promise.all([loadSupervisor(), loadHealth()]);
     });
@@ -226,7 +222,7 @@ function renderSuLimits(guard) {
 
 // ---------------------------------------------------------------- Red-team harness
 async function loadRedTeamTests() {
-  if (wrongRole("supervisorAccount", "supervisor") && wrongRole("supervisorAccount", "admin")) {
+  if (!["supervisor", "admin"].includes(persona()?.role)) {
     rtTests = null;
     fill("rtButtons", el("p", { class: "ov-error" }, "Rejected (403): the red-team harness needs a supervisor or admin account."));
     $("rtRunAll").disabled = true;
@@ -234,7 +230,7 @@ async function loadRedTeamTests() {
   }
   $("rtRunAll").disabled = rtRunning;
   if (!rtTests) {
-    try { rtTests = await api("GET", "/tests", null, supervisorPortalKey()); }
+    try { rtTests = await api("GET", "/tests", null, apiKey); }
     catch (e) { fill("rtButtons", el("p", { class: "ov-error" }, e.message)); return; }
   }
   renderRtGrid();
@@ -313,7 +309,7 @@ async function runRt(t) {
   $("rtRunAll").disabled = true;
   $("rtNote").textContent = `Running ${t.toUpperCase()}…`;
   try {
-    const r = await api("POST", `/tests/${t}`, null, supervisorPortalKey());
+    const r = await api("POST", `/tests/${t}`, null, apiKey);
     rtState.set(t, r);
     rtSelected = t;
   } catch (e) {
@@ -334,7 +330,7 @@ $("rtRunAll").addEventListener("click", async () => {
   try {
     for (const [i, t] of rtTests.entries()) {
       $("rtNote").textContent = `Running ${t.toUpperCase()} · ${i + 1} of ${rtTests.length}`;
-      try { rtState.set(t, await api("POST", `/tests/${t}`, null, supervisorPortalKey())); }
+      try { rtState.set(t, await api("POST", `/tests/${t}`, null, apiKey)); }
       catch (e) { toast(e.message); break; }
       renderRtGrid();
     }
@@ -348,9 +344,7 @@ $("rtRunAll").addEventListener("click", async () => {
   }
 });
 
-fillAccountSelect("supervisorAccount", "supervisor");
-$("supervisorAccount").value = "supervisor-key";
-$("supervisorAccount").addEventListener("change", () => { rtTests = null; loadSupervisor(); });
+document.addEventListener("persona-change", () => { rtTests = null; loadSupervisor(); });
 $("suRefresh").addEventListener("click", (ev) => busy(ev.currentTarget, loadSupervisor));
 
 loadSupervisor();

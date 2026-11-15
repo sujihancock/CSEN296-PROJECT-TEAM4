@@ -84,7 +84,6 @@ async function applyPreset(name) {
   }
 
   $("sbCustomer").value = "customer-001-key";
-  setPersona("customer-001-key");
   await loadSandbox();
   $("sbOrder").value = p.orderId;
   $("sbAmount").value = p.amount.toFixed(2);
@@ -271,14 +270,11 @@ async function sandboxReset() {
 
 // ---------------------------------------------------------------- Wiring
 const sbCustEl = $("sbCustomer");
-sbCustEl.addEventListener("change", async () => { setPersona(sbCustEl.value); await loadSandbox(); });
+sbCustEl.addEventListener("change", loadSandbox);
 $("sbOrder").addEventListener("change", syncSandboxAmount);
 $("sbReset").addEventListener("click", (ev) => busy(ev.currentTarget, sandboxReset));
 document.querySelectorAll(".sb-scenario").forEach(b => b.addEventListener("click", () => busy(b, () => applyPreset(b.dataset.scenario))));
 
-// The header persona drives which customer the sandbox files claims as.
-document.addEventListener("persona-change", (ev) => {
-  if (ev.detail.startsWith("customer") && sbCustEl.value !== ev.detail) { sbCustEl.value = ev.detail; loadSandbox(); }
-});
+// Start on the persona's own account when the persona is a customer.
 if (apiKey.startsWith("customer")) sbCustEl.value = apiKey;
 loadSandbox();

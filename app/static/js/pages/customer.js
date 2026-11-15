@@ -1,5 +1,4 @@
 "use strict";
-const customerPortalKey = () => portalKey("customerAccount", "customer-001-key");
 // ---------------------------------------------------------------- Customer portal
 // Everything here is read with the picked customer's own key, so the page only
 // ever shows that tenant's orders, cases and email. Pick a non-customer
@@ -21,12 +20,9 @@ const refundedOn = (orderId) => cuCases
 async function loadCustomer() {
   if (cuLoading) return;
   cuLoading = true;
-  const key = customerPortalKey();
-  const acct = accountByKey(key);
-  const off = wrongRole("customerAccount", "customer");
-  const note = $("cuRoleNote");
-  note.hidden = !off;
-  if (off) note.textContent = `${off.name} · ${off.id} is not a customer, so the API rejects every request on this page with 403. Submitting a claim shows the same rejection.`;
+  const key = apiKey;
+  const acct = persona();
+  roleNote("cuRoleNote", ["customer"], "This page is for customers, so the API rejects its requests with 403. Submitting a claim shows the same rejection.", "customer-001-key");
 
   try {
     const [orders, cases, emails, customers] = await Promise.all([
@@ -51,7 +47,7 @@ async function loadCustomer() {
 }
 
 function renderCuBand(me, orders, cases) {
-  const acct = accountByKey(customerPortalKey());
+  const acct = persona();
   if (me) {
     ovCell("cuAccountCell", "Account", me.name, `${me.id} · ${me.email}`);
     ovCell("cuBalanceCell", "Bank balance", money(me.bank_balance), `Refunds land in ${me.bank_account}`, { mono: true });
@@ -206,7 +202,7 @@ function renderCuOrders(orders) {
     });
     return el("li", { class: "pg-list-item" },
       el("div", { class: "pg-list-main" },
-        el("span", { class: "pg-list-title" }, o.product_name),
+        el("span", { class: "pg-list-title", title: o.product_name }, o.product_name),
         el("span", { class: "pg-list-meta" },
           el("span", { class: "font-mono" }, o.id), " · ", o.category, " · ", shortDate(o.purchase_date))),
       el("div", { class: "pg-list-side" },
@@ -231,10 +227,7 @@ function renderCuResult(r) {
     r.new_bank_balance != null ? el("p", { class: "pg-result-body" }, "New balance ", el("b", { class: "font-mono" }, money(r.new_bank_balance))) : null));
 }
 
-const cuAccountEl = $("customerAccount");
-fillAccountSelect("customerAccount", "customer");
-cuAccountEl.value = "customer-001-key";
-cuAccountEl.addEventListener("change", () => { fill("refundResult"); loadCustomer(); });
+document.addEventListener("persona-change", () => { fill("refundResult"); loadCustomer(); });
 $("orderSel").addEventListener("change", cuSyncAmount);
 $("amount").addEventListener("input", renderCuHints);
 $("cuRefresh").addEventListener("click", (ev) => busy(ev.currentTarget, loadCustomer));
@@ -245,7 +238,7 @@ $("refundForm").addEventListener("submit", (ev) => {
     const out = await api("POST", "/tasks", {
       task: "refund_request",
       data: { order_id: $("orderSel").value, amount: parseFloat($("amount").value), reason: $("reason").value },
-    }, customerPortalKey());
+    }, apiKey);
     renderCuResult(out.result);
     $("reason").value = "";
     await Promise.all([loadCustomer(), loadHealth()]);

@@ -12,16 +12,12 @@ let auLimit = AU_PAGE;
 let auOpen = new Set();    // expanded row ids
 let auLoading = false;
 
-const auditPortalKey = () => portalKey("auditAccount", "supervisor-key");
 
 async function loadAudit() {
   if (auLoading) return;
   auLoading = true;
-  const key = auditPortalKey();
-  const acct = accountByKey(key);
-  const note = $("auRoleNote");
-  note.hidden = acct?.role !== "customer";
-  if (acct?.role === "customer") note.textContent = `${acct.name} · ${acct.id} is a customer. The ledger is supervisor and admin only, so the API returns 403.`;
+  const key = apiKey;
+  roleNote("auRoleNote", ["supervisor", "admin"], "The ledger is for supervisors and admins, so the API returns 403.", "supervisor-key");
 
   try {
     const [logs, verify] = await Promise.all([
@@ -163,9 +159,7 @@ function auDetailRow(e, prev) {
                : e.id === 1 ? "First entry · links to the genesis hash" : "Previous entry not loaded")))));
 }
 
-fillAccountSelect("auditAccount", "supervisor", ["supervisor", "admin"], "Can read the ledger");
-$("auditAccount").value = "supervisor-key";
-$("auditAccount").addEventListener("change", loadAudit);
+document.addEventListener("persona-change", loadAudit);
 $("auditRefresh").addEventListener("click", (ev) => busy(ev.currentTarget, loadAudit));
 $("verifyBtn").addEventListener("click", (ev) => busy(ev.currentTarget, async () => {
   await loadAudit();

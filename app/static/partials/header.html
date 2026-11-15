@@ -9,12 +9,16 @@
     <div class="header-controls">
       <label class="hdr-persona">Persona
         <select id="role" class="header-select">
-          <option value="customer-001-key">Alex Smith · CUST-001</option>
-          <option value="customer-002-key">Elena Rostova · CUST-002</option>
-          <option value="customer-003-key">Marcus Vance · CUST-003</option>
-          <option value="customer-004-key">Raphael Kusuma · CUST-004</option>
-          <option value="supervisor-key">Supervisor · SUP-001</option>
-          <option value="admin-key">Admin · ADMIN-001</option>
+          <optgroup label="Customers">
+            <option value="customer-001-key">Alex Smith · CUST-001</option>
+            <option value="customer-002-key">Elena Rostova · CUST-002</option>
+            <option value="customer-003-key">Marcus Vance · CUST-003</option>
+            <option value="customer-004-key">Raphael Kusuma · CUST-004</option>
+          </optgroup>
+          <optgroup label="Staff">
+            <option value="supervisor-key">Supervisor · SUP-001</option>
+            <option value="admin-key">Admin · ADMIN-001</option>
+          </optgroup>
         </select>
       </label>
       <button id="themeToggleBtn" class="icon-button" type="button" aria-label="Switch color theme">

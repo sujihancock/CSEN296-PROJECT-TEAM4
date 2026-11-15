@@ -45,7 +45,7 @@ Designed with rich contrast, restrained neutrals, and purposeful semantic tokens
 - Surface 2: `#f1f5f9`
 - Surface 3: `#e2e8f0`
 - Text Primary: `#0f172a`
-- Text Muted: `#64748b`
+- Text Muted: `#5b6b7f` (clears 4.5:1 on every light surface)
 
 ## Component Anatomy
 1. **Header**:
@@ -65,12 +65,13 @@ Designed with rich contrast, restrained neutrals, and purposeful semantic tokens
    - Panels render on their own: one failing endpoint shows an inline error in its panel only. The tab refreshes every 15s while it is visible.
    - Header: below 720px the header stops being sticky and the status line wraps under the wordmark.
 7. **Workspace pages (Customer, Supervisor, Policies, Audit)**:
-   - Same skeleton as the overview: `.ov-head` with an "Acting as" account picker on the right, a state band of four or five cells, then the 3fr / 2fr panel grid. Page-only pieces use a `pg-` prefix.
-   - Picking an account without the page's role shows an amber note explaining the 403s; each panel then shows its own inline error.
+   - Same skeleton as the overview: `.ov-head` with page actions on the right, a state band of four or five cells, then the 3fr / 2fr panel grid. Page-only pieces use a `pg-` prefix.
+   - Identity is the header **Persona** and nothing else; there is no per-page account picker. When the persona lacks the page's role, an amber note says so (the API will answer 403) with a one-click "Switch to …" button, and each panel shows its own inline error. Forms stay clickable so the 403 can be shown. The sandbox's Customer field is the claimant, not the viewer, and is independent of the persona.
    - **Customer portal**: account band (identity, balance, open claims, refunded to date); claim form with an order fact strip and live hints that predict the guardrail outcome (over remaining refundable → denied, over $100 → supervisor, digital or past 30 days → policy warning); claims table; inbox feed tinted by decision; order list with one-click "Claim".
    - **Supervisor queue**: band (awaiting review, oldest waiting, supervisor decisions, agent authority); escalated claims as cards with the guardrail reason, the customer's text quoted (flagged when it reads like prompt injection), a decision note and confirm-before-pay actions; recent supervisor decisions; kill switch with reason and history; the caps that route claims here; red-team harness as a tile grid (dot per suite: green defended, amber LLM finding, red guardrail failure) with totals and a per-suite attack table. The audit table lives only on the Audit tab.
    - **Policy index**: band (indexed chunks with an out-of-sync warning against SQLite, policy count, embedding model, emails dispatched); filterable policy library with an Edit action that loads a policy into the form; index form that warns when an ID will be replaced or the text reads like an instruction to the model; mock email outbox; reset in a red-bordered panel with confirmation. Forms stay clickable under the wrong role so the 403 can be shown.
    - **Audit trail**: band (chain integrity re-verified on every load, entries with head hash, blocked, escalated, latest event); a red alert row when the chain is broken, with every row from the first bad link tinted. Ledger table with All / Notable / Blocked / Escalated / Tool calls filters, free-text search, clickable claim IDs that filter to that claim, and rows that expand to the details JSON, both hashes (click to copy) and a check that `prev_hash` matches the entry before it. Pages of 100.
 8. **Routing**:
    - Each workspace is its own page at its own URL: `/overview` (where `/` redirects), `/sandbox`, `/customer`, `/supervisor`, `/vector-policies`, `/audit`. The server stitches `partials/header.html` into `pages/<name>.html` and marks the current nav link with `aria-current="page"`, so the nav is plain links.
-   - The header persona carries across pages for the browser tab (sessionStorage). Locking pages by persona belongs in `_render_page` in `app/main.py`.
+   - The header persona carries across pages for the browser tab (sessionStorage) and every workspace page reacts to it. Locking pages by persona belongs in `_render_page` in `app/main.py`.
+9. **Phones (≤640px)**: small buttons, filter segments and scenario buttons are at least 34px tall; band and list text wraps instead of truncating; the red-team grid packs three tiles per row.

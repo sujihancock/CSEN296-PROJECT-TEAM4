@@ -59,22 +59,23 @@ const ACCOUNTS = [
 const ROLE_LABEL = { customer: "Customer", supervisor: "Supervisor", admin: "Admin" };
 const accountByKey = (key) => ACCOUNTS.find(a => a.key === key);
 
-function fillAccountSelect(id, role, allowed = [role], allowedLabel = `${ROLE_LABEL[role]} accounts`) {
-  const sel = $(id);
-  if (!sel) return;
-  const prev = sel.value;
-  const opt = (a) => el("option", { value: a.key }, `${a.name} · ${a.id}`);
-  sel.replaceChildren(
-    el("optgroup", { label: allowedLabel }, ACCOUNTS.filter(a => allowed.includes(a.role)).map(opt)),
-    el("optgroup", { label: "Other roles · expect 403" }, ACCOUNTS.filter(a => !allowed.includes(a.role)).map(opt)));
-  if (ACCOUNTS.some(a => a.key === prev)) sel.value = prev;
-}
-
-// True when the picked account doesn't hold the page's role, so the page can
-// explain the 403s it is about to show instead of looking broken.
-function wrongRole(selectId, role) {
-  const a = accountByKey($(selectId)?.value);
-  return a && a.role !== role ? a : null;
+// The header persona is the one identity every workspace page acts as.
+// When it lacks a page's role the page says so (the API will answer 403)
+// and offers the persona that can use it.
+const persona = () => accountByKey(apiKey);
+function roleNote(noteId, allowed, message, suggestKey) {
+  const note = $(noteId);
+  const p = persona();
+  const ok = p && allowed.includes(p.role);
+  if (!note) return !ok;
+  note.hidden = ok;
+  if (!ok) {
+    const target = accountByKey(suggestKey);
+    const btn = el("button", { type: "button", class: "btn btn-sm btn-secondary" }, `Switch to ${target.name}`);
+    btn.addEventListener("click", () => setPersona(suggestKey, true));
+    note.replaceChildren(el("span", {}, `You're acting as ${p.name} (${ROLE_LABEL[p.role].toLowerCase()}). ${message}`), btn);
+  }
+  return !ok;
 }
 
 // ---------------------------------------------------------------- Theme Manager (SVG Icons, No Emojis)
@@ -109,10 +110,6 @@ function readPersona() {
 }
 let apiKey = (ACCOUNTS.some(a => a.key === readPersona()) && readPersona()) || "customer-001-key";
 
-function portalKey(selectId, fallback) {
-  const sel = $(selectId);
-  return (sel && sel.value) || fallback;
-}
 
 async function api(method, path, body, keyOverride) {
   const key = keyOverride || apiKey;
@@ -213,7 +210,7 @@ function describeAudit(e) {
   const words = e.action.toLowerCase().replace(/_/g, " ");
   const tone = e.status === "BLOCKED" ? "bad" : e.status === "ESCALATED" ? "warn" : e.status === "ALLOWED" ? "ok" : "info";
   const note = d.code && d.code !== "OK" ? d.code : d.reason;
-  let title = words.charAt(0).toUpperCase() + words.slice(1);
+  let title = (words.charAt(0).toUpperCase() + words.slice(1)).replace(/\brt[- ](\d+)/i, "RT-$1");
   if (e.status === "BLOCKED" && !/denied|blocked|mismatch/.test(words)) title += " blocked";
   if (e.status === "ESCALATED" && !/escalated/.test(words)) title += " held for review";
   return { title, tone, note };

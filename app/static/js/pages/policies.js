@@ -1,5 +1,4 @@
 "use strict";
-const adminPortalKey = () => portalKey("adminAccount", "admin-key");
 // ---------------------------------------------------------------- Policy index (admin)
 // Policies are dual-written to SQLite and ChromaDB. The Refunds agent
 // retrieves from ChromaDB, so whatever is indexed here can steer its proposal
@@ -11,13 +10,11 @@ let adLoading = false;
 async function loadAdmin() {
   if (adLoading) return;
   adLoading = true;
-  const key = adminPortalKey();
-  const acct = accountByKey(key);
-  const note = $("adRoleNote");
+  const key = apiKey;
   // Supervisors may read policies but not upload or reset; customers get nothing.
-  note.hidden = acct?.role === "admin";
-  if (acct?.role === "supervisor") note.textContent = `${acct.name} · ${acct.id} can read the index but not change it. Try indexing or resetting to see the 403.`;
-  else if (acct?.role !== "admin") note.textContent = `${acct?.name} · ${acct?.id} is not an admin, so the API rejects these endpoints with 403.`;
+  roleNote("adRoleNote", ["admin"], persona()?.role === "supervisor"
+    ? "Supervisors can read the index but not change it. Indexing or resetting returns 403."
+    : "The policy index is for admins, so the API rejects these requests with 403.", "admin-key");
 
   try {
     const [policies, stats, outbox] = await Promise.all([
@@ -85,7 +82,7 @@ function renderAdPolicies(res) {
     return el("li", { class: "pg-policy" },
       el("div", { class: "pg-policy-head" },
         el("span", { class: "pg-policy-id" }, p.id),
-        el("span", { class: "pg-policy-title" }, p.title),
+        el("span", { class: "pg-policy-title", title: p.title }, p.title),
         edit),
       el("p", { class: "pg-policy-text" }, p.content),
       el("div", { class: "pg-policy-foot" },
@@ -126,9 +123,7 @@ function renderAdHints() {
     el("span", { class: `ov-feed-mark ${tone}`, "aria-hidden": "true" }), el("span", {}, t))));
 }
 
-fillAccountSelect("adminAccount", "admin");
-$("adminAccount").value = "admin-key";
-$("adminAccount").addEventListener("change", loadAdmin);
+document.addEventListener("persona-change", loadAdmin);
 $("adRefresh").addEventListener("click", (ev) => busy(ev.currentTarget, loadAdmin));
 $("adSearch").addEventListener("input", () => renderAdPolicies({ ok: true, v: adPolicies }));
 ["pId", "pTitle", "pContent"].forEach(id => $(id).addEventListener("input", renderAdHints));
@@ -140,7 +135,7 @@ $("policyForm").addEventListener("submit", (ev) => {
     const id = $("pId").value.trim();
     await api("POST", "/policies", {
       id, title: $("pTitle").value.trim(), content: $("pContent").value.trim(), tags: $("pTags").value.trim(),
-    }, adminPortalKey());
+    }, apiKey);
     ev.target.reset();
     toast(`<b>${id}</b> indexed into SQLite and ChromaDB.`);
     await Promise.all([loadAdmin(), loadHealth()]);
@@ -148,7 +143,7 @@ $("policyForm").addEventListener("submit", (ev) => {
 });
 
 $("resetBtn").addEventListener("click", (ev) => busy(ev.currentTarget, async () => {
-  if (await resetDemoData(adminPortalKey())) await loadAdmin();
+  if (await resetDemoData(apiKey)) await loadAdmin();
 }));
 
 loadAdmin();

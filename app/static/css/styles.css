@@ -72,7 +72,7 @@
 
   --text-primary: #0f172a;
   --text-secondary: #334155;
-  --text-tertiary: #64748b;
+  --text-tertiary: #5b6b7f;
 
   --accent-primary: #1d4ed8;
   --accent-hover: #1e40af;
@@ -963,19 +963,6 @@ td.mono {
 [hidden] { display: none !important; }
 
 .pg-head-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.pg-actor {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--text-tertiary);
-}
-.pg-actor select {
-  height: 30px;
-  padding: 0 28px 0 10px;
-  font-size: 12.5px;
-  max-width: 220px;
-}
 .pg-role-note {
   display: flex;
   align-items: center;
@@ -999,17 +986,9 @@ td.mono {
 @media (max-width: 640px) {
   .pg-band-4 .ov-cell:first-child, .pg-band-5 .ov-cell:first-child { grid-column: auto; }
   .pg-head-actions { width: 100%; }
-  .pg-actor { flex: 1; }
-  .pg-actor select { flex: 1; max-width: none; }
 }
 
 /* ---- Shared page pieces ---- */
-.pg-actor {
-  text-transform: none;
-  letter-spacing: 0;
-  font-weight: 500;
-}
-.pg-actor select { width: auto; }
 .pg-form { display: flex; flex-direction: column; gap: 14px; }
 .pg-clamp {
   display: -webkit-box;
@@ -1443,3 +1422,19 @@ input, textarea { caret-color: var(--accent-primary); }
 .sb-fact-wide dd { font-weight: 500; font-size: 12.5px; color: var(--text-secondary); }
 .pg-case { grid-template-columns: minmax(0, 1fr); }
 .pg-case-quote figcaption { flex-wrap: wrap; }
+
+/* ---- Role note: explains a 403 and offers the persona that works ---- */
+.pg-role-note .btn { margin-left: auto; flex: none; }
+@media (max-width: 640px) { .pg-role-note { flex-wrap: wrap; } .pg-role-note .btn { margin-left: 0; } }
+
+/* ---- Phones: finger-sized controls, wrap instead of truncating ---- */
+@media (max-width: 640px) {
+  .btn-sm, .ov-seg-btn, .sb-scenario { min-height: 34px; }
+  .ov-seg-btn { padding: 6px 12px; }
+  .pg-search, .pg-ks-form input { min-height: 36px; }
+  .pg-linkish { display: inline-block; padding: 8px 0; }
+  .ov-cell-sub, .pg-list-title, .pg-policy-title { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+  .pg-policy-head { align-items: flex-start; }
+  .pg-rt-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+  .pg-case textarea { min-height: 76px; }
+}
