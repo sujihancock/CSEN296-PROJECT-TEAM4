@@ -76,18 +76,30 @@ def test_api_end_to_end():
 
 def test_ui_is_served():
     with TestClient(app) as client:
-        r = client.get("/")
-        assert r.status_code == 200
-        assert "ChangSupport.AI" in r.text
-        assert "Interactive Sandbox" in r.text
+        r = client.get("/", follow_redirects=False)
+        assert r.status_code in (302, 307)
+        assert r.headers["location"] == "/overview"
+
+        pages = {
+            "overview": "overview.js", "sandbox": "sandbox.js", "customer": "customer.js",
+            "supervisor": "supervisor.js", "vector-policies": "policies.js", "audit": "audit.js",
+        }
+        for page, script in pages.items():
+            r = client.get(f"/{page}")
+            assert r.status_code == 200, page
+            assert "ChangSupport.AI" in r.text
+            assert "Interactive Sandbox" in r.text          # shared header was stitched in
+            assert f'aria-current="page" href="/{page}"' in r.text
+            assert f"/static/js/pages/{script}" in r.text
+            assert client.get(f"/static/js/pages/{script}").status_code == 200
 
         css = client.get("/static/css/styles.css")
         assert css.status_code == 200
         assert "--accent" in css.text
 
-        js = client.get("/static/js/app.js")
-        assert js.status_code == 200
-        assert "applyPreset" in js.text
+        core = client.get("/static/js/core.js")
+        assert core.status_code == 200
+        assert "applyPreset" in client.get("/static/js/pages/sandbox.js").text
 
 
 def test_demo_customers_endpoint():
