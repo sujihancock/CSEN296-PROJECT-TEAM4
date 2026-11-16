@@ -44,7 +44,6 @@ htmlcov/
 # ChangSupport.AI runtime data
 data/
 logs/
-redteam/results/
 
 # Agent skills & local caches
 .agents/
