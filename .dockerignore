@@ -1,0 +1,17 @@
+.git
+.venv
+.env
+.env.*
+!.env.example
+data/
+app/backend/data/
+logs/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.DS_Store
+.agents/
+.impeccable/
+.claude/
+presentation/
+report/

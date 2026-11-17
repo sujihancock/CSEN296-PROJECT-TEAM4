@@ -1,0 +1,20 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+# New > Blueprint in the Render dashboard, pick this repo, and Render creates the service.
+services:
+  - type: web
+    name: changsupport-ai
+    runtime: docker
+    plan: starter            # $7/mo, 512 MB RAM, no sleeping. Use "free" to try it first.
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # mock = no API key needed and no cost. Set to "gemini" and add GEMINI_API_KEY to use Gemma.
+      - key: CHANGSUPPORT_LLM_PROVIDER
+        value: mock
+      - key: GEMINI_MODEL
+        value: gemma-4-31b-it
+      - key: GEMINI_FALLBACK_TO_MOCK
+        value: "true"
+      - key: GEMINI_API_KEY
+        sync: false          # Render asks for the value when the Blueprint is created; never commit it.

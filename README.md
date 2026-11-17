@@ -56,6 +56,16 @@ You can check which model is active at <http://localhost:8000/llm/status>. If Ol
 
 [run_instructions.md](run_instructions.md) covers the API keys, endpoints and demo script.
 
+## Deploying to Render
+
+The repo includes a [Dockerfile](Dockerfile) and a Render Blueprint ([render.yaml](render.yaml)).
+
+1. In the Render dashboard, choose **New > Blueprint** and select this GitHub repo.
+2. Render reads `render.yaml` and creates the `changsupport-ai` web service (Starter plan, $7/month). Leave `GEMINI_API_KEY` empty to run on the mock LLM, or paste a key and set `CHANGSUPPORT_LLM_PROVIDER=gemini` to use Gemma.
+3. Every push to `main` redeploys.
+
+The demo database and policy store are re-seeded on every deploy or restart, and nothing persists between them. The demo API keys in `app/config.py` are public, so anyone with the URL can act as a supervisor or admin.
+
 ## Architecture
 
 ```mermaid
