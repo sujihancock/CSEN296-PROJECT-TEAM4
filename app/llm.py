@@ -12,6 +12,7 @@ import abc
 import json
 import logging
 import re
+import time
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -329,6 +330,8 @@ class GeminiLLM(BaseLLM):
         self.api_key = api_key if api_key is not None else config.GEMINI_API_KEY
         self.model = model or config.GEMINI_MODEL
         self.timeout = timeout if timeout is not None else config.GEMINI_TIMEOUT
+        self.thinking_level = config.GEMINI_THINKING_LEVEL
+        self.max_retries = config.GEMINI_MAX_RETRIES
 
     def has_key(self) -> bool:
         return bool(self.api_key)
@@ -343,6 +346,9 @@ class GeminiLLM(BaseLLM):
         generation_config: Dict[str, Any] = {"temperature": 0.1}
         if not self.is_gemma():
             generation_config["responseMimeType"] = "application/json"
+        if self.thinking_level:
+            # Gemma 4 on this API accepts only "minimal" (thinking off); Gemini models accept more levels.
+            generation_config["thinkingConfig"] = {"thinkingLevel": self.thinking_level}
         return {
             "systemInstruction": {"parts": [{"text": system}]},
             "contents": contents,
@@ -365,6 +371,26 @@ class GeminiLLM(BaseLLM):
             raise ValueError(f"Gemini returned an empty answer (finishReason={candidates[0].get('finishReason')}).")
         return text
 
+    RETRY_STATUSES = (429, 500, 503)
+
+    def _post(self, body: Dict[str, Any]) -> httpx.Response:
+        """POST generateContent, retrying briefly when the model is busy.
+
+        Hosted Gemma often answers "503 high demand" in well under a second, so a
+        couple of quick retries usually succeed instead of falling back to the mock.
+        """
+        url = f"{self.API_BASE}/models/{self.model}:generateContent"
+        headers = {"x-goog-api-key": self.api_key, "Content-Type": "application/json"}
+        for attempt in range(self.max_retries + 1):
+            resp = httpx.post(url, headers=headers, json=body, timeout=self.timeout)
+            if resp.status_code not in self.RETRY_STATUSES or attempt == self.max_retries:
+                break
+            delay = 1.5 * (2 ** attempt)
+            logger.info(f"{self.model} returned {resp.status_code}; retrying in {delay:.1f}s.")
+            time.sleep(delay)
+        resp.raise_for_status()
+        return resp
+
     def propose_refund_decision(
         self,
         reason: str,
@@ -382,13 +408,7 @@ class GeminiLLM(BaseLLM):
         try:
             if not self.api_key:
                 raise RuntimeError("GEMINI_API_KEY is not set.")
-            resp = httpx.post(
-                f"{self.API_BASE}/models/{self.model}:generateContent",
-                headers={"x-goog-api-key": self.api_key, "Content-Type": "application/json"},
-                json=self.build_request(messages),
-                timeout=self.timeout,
-            )
-            resp.raise_for_status()
+            resp = self._post(self.build_request(messages))
             return parse_decision(self.extract_text(resp.json()), amount_requested, policy_ids, self.model)
 
         except Exception as e:

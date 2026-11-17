@@ -119,3 +119,25 @@ def test_gemma_skips_json_mode_and_parses_prose_wrapped_json(sample_order, sampl
     assert decision["action"] == "DENY"
     assert decision["amount"] == 0.0
     assert decision["model_used"] == "gemma-4-31b-it"
+
+
+def test_retries_when_model_is_busy(sample_order, sample_policies, monkeypatch):
+    monkeypatch.setattr("app.llm.time.sleep", lambda s: None)
+    client = GeminiLLM(api_key="test-key", model="gemma-4-31b-it")
+    client.max_retries = 3
+    busy = MagicMock(status_code=503)
+    answer = json.dumps({"action": "APPROVE", "amount": 45.0, "rationale": "ok", "policies_considered": ["POL-001"]})
+    with patch("httpx.post", side_effect=[busy, busy, _gemini_response(answer)]) as post:
+        decision = _decide(client, sample_order, sample_policies)
+    assert post.call_count == 3
+    assert decision["action"] == "APPROVE"
+    assert "fallback_triggered" not in decision
+
+
+def test_thinking_level_is_sent_when_set(monkeypatch):
+    monkeypatch.setattr(config, "GEMINI_THINKING_LEVEL", "minimal")
+    client = GeminiLLM(api_key="test-key", model="gemma-4-31b-it")
+    body = client.build_request([{"role": "system", "content": "s"}, {"role": "user", "content": "u"}])
+    assert body["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "minimal"}
+    monkeypatch.setattr(config, "GEMINI_THINKING_LEVEL", "")
+    assert "thinkingConfig" not in GeminiLLM(api_key="k").build_request([{"role": "user", "content": "u"}])["generationConfig"]

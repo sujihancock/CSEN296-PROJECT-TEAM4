@@ -38,7 +38,10 @@ OLLAMA_FALLBACK_TO_MOCK = os.getenv("OLLAMA_FALLBACK_TO_MOCK", "true").lower() i
 # and any Gemini model id (e.g. "gemini-2.5-flash") also works.
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or ""
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemma-4-31b-it")
-GEMINI_TIMEOUT = float(os.getenv("GEMINI_TIMEOUT", "30.0"))
+GEMINI_TIMEOUT = float(os.getenv("GEMINI_TIMEOUT", "90.0"))  # Gemma 31B with thinking takes ~25s
+GEMINI_MAX_RETRIES = int(os.getenv("GEMINI_MAX_RETRIES", "3"))  # retries on 429/500/503 (model busy)
+# Empty = the model's default (Gemma 4 thinks first). "minimal" turns thinking off: ~2x faster.
+GEMINI_THINKING_LEVEL = os.getenv("GEMINI_THINKING_LEVEL", "").strip().lower()
 GEMINI_FALLBACK_TO_MOCK = os.getenv("GEMINI_FALLBACK_TO_MOCK", "true").lower() in ("true", "1", "yes")
 
 # Mock authentication: demo API keys -> (role, user id).

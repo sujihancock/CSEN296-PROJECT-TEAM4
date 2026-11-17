@@ -43,6 +43,8 @@ htmlcov/
 
 # Secrets (API keys)
 .env
+.env.*
+!.env.example
 
 # ChangSupport.AI runtime data
 data/

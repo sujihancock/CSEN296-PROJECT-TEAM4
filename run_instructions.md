@@ -26,6 +26,13 @@ cp .env.example .env    # then paste your key into GEMINI_API_KEY
 ```
 Get a key at <https://aistudio.google.com/apikey>. `.env` is git-ignored. The default model is **Gemma 4 31B** (`gemma-4-31b-it`), the largest Gemma on the API, picked for policy reasoning and resistance to injected instructions. Set `GEMINI_MODEL=gemma-4-26b-a4b-it` for a faster mixture-of-experts Gemma, or to any Gemini model id. Without a key the app keeps using the mock LLM, and if a model call fails it falls back to the mock unless you set `GEMINI_FALLBACK_TO_MOCK=false`. `./start.sh test` ignores `.env`, so the tests always use the mock.
 
+### Red team against the live model
+```bash
+set -a; . ./.env.local; set +a
+PYTHONPATH=. .venv/bin/python scripts/redteam_live.py
+```
+Runs every attack against the mock (baseline) and then against the configured live model, pausing 20s after each model call and retrying "model busy" errors. Attacks that still fall back to the mock are re-run after a cool-down. The timestamped report is written to `redteam/results/live/<model>_<timestamp>/report.md`, next to `results.json`. Expect 40–60 minutes for Gemma 4 31B. `--only RT-04-a RT-05-b` runs a subset.
+
 ### Optional: local Qwen model through Ollama
 ```bash
 ./scripts/setup_ollama.sh qwen3.5:2b
