@@ -18,8 +18,9 @@ The point of the project is that **the LLM is not trusted**. Every tool call goe
 | Kill switch | A supervisor can revoke the agent's authority. When it is on, every tool call fails closed |
 | Audit | Every tool call and decision is written to a hash-chained, tamper-evident log |
 
-Refund policies are retrieved from a **ChromaDB vector store** (`all-MiniLM-L6-v2` embeddings). Two LLM backends are available:
+Refund policies are retrieved from a **ChromaDB vector store** (`all-MiniLM-L6-v2` embeddings). Three LLM backends are available:
 - **Mock LLM (default)**: deterministic, and deliberately vulnerable to prompt injection, both direct and through retrieved policy text. The red team results below were produced with it.
+- **Gemma 4 through Google AI Studio**: optional, through the Gemini API (needs `GEMINI_API_KEY`).
 - **Local Qwen model through Ollama**: optional.
 
 The guardrail doesn't depend on which model is used.
@@ -39,6 +40,13 @@ pip install -r requirements.txt
 - Tests: `./start.sh test` (output saved to `redteam/test_results.txt`)
 - Full scripted demo and red team suites: `./start.sh demo` (output saved to `redteam/demo_results.txt`)
 
+**Running with Gemma (Google AI Studio)**:
+```bash
+cp .env.example .env    # then paste your key into GEMINI_API_KEY
+./start.sh
+```
+Get a key at <https://aistudio.google.com/apikey>. `.env` is git-ignored. The default model is **Gemma 4 31B** (`gemma-4-31b-it`), the largest Gemma on the API, picked for policy reasoning and resistance to injected instructions. Set `GEMINI_MODEL=gemma-4-26b-a4b-it` for a faster mixture-of-experts Gemma, or to any Gemini model id. Without a key the app keeps using the mock LLM, and if a model call fails it falls back to the mock unless you set `GEMINI_FALLBACK_TO_MOCK=false`. `./start.sh test` ignores `.env`, so the tests always use the mock.
+
 **Running with a local Qwen model through Ollama**:
 ```bash
 ./scripts/setup_ollama.sh qwen3.5:2b
@@ -55,7 +63,7 @@ flowchart TD
     UI["Browser dashboard / API client<br/>(X-API-Key → identity)"] --> API["FastAPI (app/main.py)"]
     API --> Orch["Orchestrator (app/agent.py)"]
     Orch --> Intake & Records & Refunds & Email & Reporting
-    Refunds --> LLM["LLM (app/llm.py)<br/>Mock or Qwen via Ollama · untrusted"]
+    Refunds --> LLM["LLM (app/llm.py)<br/>Mock, Gemma (AI Studio) or Qwen via Ollama · untrusted"]
     Refunds --> RAG["Policy retriever (app/retriever.py)<br/>ChromaDB vector store"]
     Intake & Records & Refunds & Email & Reporting -->|"call_tool()"| Tools["MCP-style tools (app/tools/)"]
     Tools -->|"every call"| G["Guardrail (app/guardrails.py)<br/>allowlist · ownership · caps · kill switch"]
@@ -71,7 +79,7 @@ flowchart TD
 | [app/agent.py](app/agent.py) | Orchestrator and the five specialist agents (workflow steps 1–8) |
 | [app/tools/](app/tools/) | Tool registry, one module per specialist (`intake`, `records`, `refunds`, `email`, `reporting`) |
 | [app/guardrails.py](app/guardrails.py) | The single enforcement point for every tool call and for money movement |
-| [app/llm.py](app/llm.py) | `MockLLM` (intentionally injectable) and `OllamaLLM` (local Qwen) |
+| [app/llm.py](app/llm.py) | `MockLLM` (intentionally injectable), `GeminiLLM` (Gemma/Gemini via Google AI Studio) and `OllamaLLM` (local Qwen) |
 | [app/retriever.py](app/retriever.py), [app/vector_store.py](app/vector_store.py) | Policy retrieval backed by ChromaDB |
 | [app/audit.py](app/audit.py) | Append-only, hash-chained audit log and chain verification |
 | [app/redteam.py](app/redteam.py) | Runs `/tests/rt-XX` attacks in a sandbox DB and writes evidence |

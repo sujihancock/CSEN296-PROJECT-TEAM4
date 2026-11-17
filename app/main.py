@@ -315,9 +315,10 @@ def list_tools(_who=Depends(require("supervisor", "admin"))):
 
 @app.get("/llm/status")
 def llm_status():
-    from app.llm import OllamaLLM, get_llm
+    from app.llm import GeminiLLM, OllamaLLM, get_llm
     active_llm = get_llm()
     is_ollama = isinstance(active_llm, OllamaLLM)
+    is_gemini = isinstance(active_llm, GeminiLLM)
     return {
         "configured_provider": config.LLM_PROVIDER,
         "active_class": active_llm.__class__.__name__,
@@ -325,7 +326,14 @@ def llm_status():
         "ollama_model": config.OLLAMA_MODEL,
         "ollama_reachable": active_llm.is_available() if is_ollama else False,
         "ollama_models": active_llm.list_models() if is_ollama else [],
-        "fallback_to_mock_enabled": config.OLLAMA_FALLBACK_TO_MOCK,
+        "fallback_to_mock_enabled": (
+            config.GEMINI_FALLBACK_TO_MOCK if config.LLM_PROVIDER == "gemini" else config.OLLAMA_FALLBACK_TO_MOCK
+        ),
+        "gemini_model": config.GEMINI_MODEL,
+        "gemini_key_configured": bool(config.GEMINI_API_KEY),
+        "active_model": (
+            active_llm.model if (is_ollama or is_gemini) else "mock"
+        ),
     }
 
 

@@ -124,10 +124,13 @@ function renderOvLlm(llm) {
   if (!llm.ok) { ovCell("ovLlmCell", "Reasoning engine", "Unknown", llm.e.message, { subClass: "is-bad" }); return; }
   const l = llm.v;
   const isMock = l.active_class === "MockLLM";
-  const fellBack = l.configured_provider === "ollama" && isMock;
+  const provider = l.configured_provider;
+  const fellBack = (provider === "ollama" || provider === "gemini") && isMock;
+  const fellBackWhy = provider === "gemini" ? "API key missing · using mock" : "Ollama unreachable · using mock";
+  const liveSub = l.active_class === "GeminiLLM" ? "Google AI Studio" : `Ollama · ${l.ollama_reachable ? "reachable" : "unreachable"}`;
   ovCell("ovLlmCell", "Reasoning engine",
-    isMock ? "Mock LLM" : l.ollama_model,
-    fellBack ? "Ollama unreachable · using mock" : isMock ? "Deterministic test model" : `Ollama · ${l.ollama_reachable ? "reachable" : "unreachable"}`,
+    isMock ? "Mock LLM" : l.active_model,
+    fellBack ? fellBackWhy : isMock ? "Deterministic test model" : liveSub,
     { dot: fellBack ? "warn" : "ok", subClass: fellBack ? "is-warn" : null });
 }
 

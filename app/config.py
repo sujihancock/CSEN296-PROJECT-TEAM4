@@ -25,11 +25,21 @@ RETURN_WINDOW_DAYS = 30
 CORE_AGENT_ID = "ChangSupport-Core"
 
 # LLM Engine Configuration
-LLM_PROVIDER = os.getenv("CHANGSUPPORT_LLM_PROVIDER", "mock").lower()  # "mock" or "ollama"
+LLM_PROVIDER = os.getenv("CHANGSUPPORT_LLM_PROVIDER", "mock").lower()  # "mock", "ollama" or "gemini"
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen3.5:2b")
 OLLAMA_TIMEOUT = float(os.getenv("OLLAMA_TIMEOUT", "30.0"))
 OLLAMA_FALLBACK_TO_MOCK = os.getenv("OLLAMA_FALLBACK_TO_MOCK", "true").lower() in ("true", "1", "yes")
+
+# Google-hosted models via the Gemini API (CHANGSUPPORT_LLM_PROVIDER=gemini).
+# Keep the key in .env, never in code. Default is Gemma 4 31B (dense): the strongest
+# Gemma on the API, which matters for policy reasoning and resisting injected
+# instructions. "gemma-4-26b-a4b-it" (MoE, ~4B active) is a faster alternative,
+# and any Gemini model id (e.g. "gemini-2.5-flash") also works.
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or ""
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemma-4-31b-it")
+GEMINI_TIMEOUT = float(os.getenv("GEMINI_TIMEOUT", "30.0"))
+GEMINI_FALLBACK_TO_MOCK = os.getenv("GEMINI_FALLBACK_TO_MOCK", "true").lower() in ("true", "1", "yes")
 
 # Mock authentication: demo API keys -> (role, user id).
 # The API derives identity from the key, never from the request body.

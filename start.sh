@@ -5,6 +5,7 @@
 #   ./start.sh test     run the test suite        (output saved to redteam/test_results.txt)
 #   ./start.sh demo     run the scripted demo     (output saved to redteam/demo_results.txt)
 #
+# To use Gemma 4 via Google AI Studio: cp .env.example .env, then add your GEMINI_API_KEY.
 # To use the local Qwen model instead of the mock LLM:
 #   CHANGSUPPORT_LLM_PROVIDER=ollama OLLAMA_MODEL=qwen3.5:2b ./start.sh
 
@@ -23,7 +24,19 @@ fi
 
 VENV_PYTHON="./.venv/bin/python3"
 
+# Load .env (model provider, API keys) for the server and demo. Tests skip it so
+# they always run against the deterministic mock LLM and never call a paid API.
+load_env() {
+    if [ -f .env ]; then
+        set -a
+        . ./.env
+        set +a
+        echo "Loaded settings from .env (LLM provider: ${CHANGSUPPORT_LLM_PROVIDER:-mock})"
+    fi
+}
+
 start_server() {
+    load_env
     echo "=========================================================="
     echo "🚀 Starting ChangSupport.AI on http://localhost:8000"
     echo "   👉 Interactive Dashboard: http://localhost:8000/"
@@ -41,6 +54,7 @@ run_tests() {
 }
 
 run_demo() {
+    load_env
     echo "=========================================================="
     echo "🎬 Running ChangSupport.AI demo + red team suites"
     echo "   Output saved to redteam/demo_results.txt"

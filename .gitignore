@@ -41,6 +41,9 @@ htmlcov/
 .vscode/
 
 
+# Secrets (API keys)
+.env
+
 # ChangSupport.AI runtime data
 data/
 logs/

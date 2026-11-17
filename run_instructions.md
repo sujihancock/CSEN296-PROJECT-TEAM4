@@ -1,6 +1,6 @@
 # Run Instructions (Local, Safe)
 
-Everything runs locally. The bank, email and tools are mocks, and the red team tests run in a sandbox database. By default the LLM is a mock too. You can optionally switch to a local Qwen model through Ollama (see below).
+Everything runs locally. The bank, email and tools are mocks, and the red team tests run in a sandbox database. By default the LLM is a mock too. You can optionally switch to Gemma through Google AI Studio or a local Qwen model through Ollama (see below).
 
 ## Prereqs
 - Python 3.9+
@@ -18,6 +18,13 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 Or run `./start.sh`. The database is created and seeded at `data/changsupport.db` on first start, and the ChromaDB policy index is stored in `data/chroma/`. To use a different database file, set `CHANGSUPPORT_DB=/path/to.db`.
+
+### Optional: Gemma through Google AI Studio
+```bash
+cp .env.example .env    # then paste your key into GEMINI_API_KEY
+./start.sh
+```
+Get a key at <https://aistudio.google.com/apikey>. `.env` is git-ignored. The default model is **Gemma 4 31B** (`gemma-4-31b-it`), the largest Gemma on the API, picked for policy reasoning and resistance to injected instructions. Set `GEMINI_MODEL=gemma-4-26b-a4b-it` for a faster mixture-of-experts Gemma, or to any Gemini model id. Without a key the app keeps using the mock LLM, and if a model call fails it falls back to the mock unless you set `GEMINI_FALLBACK_TO_MOCK=false`. `./start.sh test` ignores `.env`, so the tests always use the mock.
 
 ### Optional: local Qwen model through Ollama
 ```bash
@@ -66,7 +73,7 @@ Seed orders for CUST-001:
 | `POST /supervisor/kill-switch` | supervisor | `{"active": true, "reason": "..."}` |
 | `GET /guardrails/status` | supervisor, admin | Kill-switch state, limits, and the weekly total so far |
 | `GET /tools` | supervisor, admin | The MCP-style tool list and per-agent permissions |
-| `GET /llm/status` | any | Which LLM backend is active and whether Ollama is reachable |
+| `GET /llm/status` | any | Which LLM backend is active, whether Ollama is reachable and whether a Gemini key is set |
 | `GET /demo/customers` | any authenticated user | Customer profiles for the dashboard |
 | `GET /policies/vector-stats` | supervisor, admin | ChromaDB collection name and number of indexed vectors |
 | `GET /policies`, `POST /policies` | admin | List or upload refund policies (RAG source) |
