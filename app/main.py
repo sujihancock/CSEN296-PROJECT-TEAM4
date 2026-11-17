@@ -129,7 +129,7 @@ def submit_task(req: TaskRequest, who: Identity = Depends(require("customer")), 
     claimed = req.data.get("customer_id")
     if claimed is not None and claimed != who.user_id:
         audit.log_event(conn, who.user_id, "API_IDENTITY_MISMATCH", "BLOCKED", {"claimed_customer_id": claimed})
-        raise HTTPException(403, "customer_id does not match the authenticated customer")
+        raise HTTPException(403, "customer_id does not match the authenticated beneficiary")
     try:
         agent.plan(req.task, req.data)
     except ValueError as e:
@@ -222,7 +222,7 @@ def api_send_email(req: EmailSendRequest, who: Identity = Depends(identity), con
     if who.role == "customer":
         cust = conn.execute("SELECT email FROM customers WHERE id = ?", (who.user_id,)).fetchone()
         if not cust or req.to_email != cust["email"]:
-            raise HTTPException(403, "Customers can only send emails to their own address on file")
+            raise HTTPException(403, "Beneficiaries can only send emails to their own address on file")
 
     from app.email_api import email_service
     result = email_service.send_message(conn, req.case_id, req.to_email, req.subject, req.body, req.email_type)

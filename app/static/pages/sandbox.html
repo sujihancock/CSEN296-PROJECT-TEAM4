@@ -16,7 +16,7 @@
       <div class="ov-head-title">
         <h1>Sandbox</h1>
         <p class="ov-head-meta">
-          <span>File a claim as any customer and see what each agent and guardrail decided</span>
+          <span>File a reimbursement claim as any beneficiary and see what each agent and guardrail decided</span>
         </p>
       </div>
       <div class="pg-head-actions">
@@ -34,13 +34,13 @@
           <p class="sb-label" id="sbScenarioLabel">Start from a scenario</p>
           <div class="sb-scenarios" role="group" aria-labelledby="sbScenarioLabel">
             <button type="button" class="sb-scenario" data-scenario="standard" aria-pressed="false">
-              <span class="sb-scenario-name">Standard refund</span><span class="sb-scenario-amt">$45</span>
+              <span class="sb-scenario-name">Standard reimbursement</span><span class="sb-scenario-amt">$45</span>
             </button>
             <button type="button" class="sb-scenario" data-scenario="high_value" aria-pressed="false">
               <span class="sb-scenario-name">Over the $100 cap</span><span class="sb-scenario-amt">$450</span>
             </button>
-            <button type="button" class="sb-scenario" data-scenario="digital" aria-pressed="false">
-              <span class="sb-scenario-name">Digital download</span><span class="sb-scenario-amt">$30</span>
+            <button type="button" class="sb-scenario" data-scenario="excluded" aria-pressed="false">
+              <span class="sb-scenario-name">Excluded service</span><span class="sb-scenario-amt">$30</span>
             </button>
             <button type="button" class="sb-scenario" data-scenario="injection" aria-pressed="false">
               <span class="sb-scenario-name">Prompt injection</span><span class="sb-scenario-amt">$450</span>
@@ -54,30 +54,30 @@
 
         <form id="sandboxForm" class="pg-form">
           <div class="form-group">
-            <label for="sbCustomer">Customer</label>
+            <label for="sbCustomer">Beneficiary</label>
             <select id="sbCustomer" aria-describedby="sbBalance">
-              <option value="customer-001-key" data-id="CUST-001">Alex Lopes · CUST-001</option>
-              <option value="customer-002-key" data-id="CUST-002">Ariana Sun · CUST-002</option>
-              <option value="customer-003-key" data-id="CUST-003">Suji Hancock · CUST-003</option>
-              <option value="customer-004-key" data-id="CUST-004">Raphael Kusuma · CUST-004</option>
-              <option value="customer-005-key" data-id="CUST-005">Jeromy Chang · CUST-005</option>
+              <option value="customer-001-key" data-id="BEN-001">Alex Lopes · BEN-001</option>
+              <option value="customer-002-key" data-id="BEN-002">Ariana Sun · BEN-002</option>
+              <option value="customer-003-key" data-id="BEN-003">Suji Hancock · BEN-003</option>
+              <option value="customer-004-key" data-id="BEN-004">Raphael Kusuma · BEN-004</option>
+              <option value="customer-005-key" data-id="BEN-005">Jeromy Chang · BEN-005</option>
             </select>
-            <p class="sb-hint" id="sbBalance">Bank balance <span id="sbBankBalance" class="font-mono">—</span></p>
+            <p class="sb-hint" id="sbBalance">Payment account <span id="sbBankBalance" class="font-mono">—</span></p>
           </div>
           <div class="form-group">
-            <label for="sbOrder">Order</label>
+            <label for="sbOrder">Healthcare expense</label>
             <select id="sbOrder" required></select>
           </div>
           <div class="form-group">
-            <label for="sbAmount">Amount to refund</label>
+            <label for="sbAmount">Amount to reimburse</label>
             <div class="currency-input-wrapper">
               <span class="currency-symbol font-mono">$</span>
               <input id="sbAmount" type="number" step="0.01" min="0.01" required placeholder="0.00">
             </div>
           </div>
           <div class="form-group">
-            <label for="sbReason">What the customer wrote</label>
-            <textarea id="sbReason" required rows="4" placeholder="A normal complaint, or an attempt to talk the agent into paying more"></textarea>
+            <label for="sbReason">What the beneficiary wrote</label>
+            <textarea id="sbReason" required rows="4" placeholder="A normal request, or an attempt to talk the agent into paying more"></textarea>
           </div>
           <div class="form-actions">
             <button class="btn btn-primary" type="submit" id="sbSubmitBtn">Run claim</button>

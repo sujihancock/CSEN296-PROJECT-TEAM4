@@ -1,6 +1,6 @@
 # Run Instructions (Local, Safe)
 
-Everything runs locally. The bank, email and tools are mocks, and the red team tests run in a sandbox database. By default the LLM is a mock too. You can optionally switch to Gemma through Google AI Studio or a local Qwen model through Ollama (see below).
+Everything runs locally. The payment system, email and tools are mocks, and the red team tests run in a sandbox database. By default the LLM is a mock too. You can optionally switch to Gemma through Google AI Studio or a local Qwen model through Ollama (see below).
 
 ## Prereqs
 - Python 3.9+
@@ -44,60 +44,64 @@ CHANGSUPPORT_LLM_PROVIDER=ollama OLLAMA_MODEL=qwen3.5:2b ./start.sh
 - Interactive API docs: <http://localhost:8000/docs>
 
 ## Authentication (mock)
-Every request except `/health` and `/` needs an `X-API-Key` header. The server takes the caller's identity from the key and never from the request body. If the body names a different `customer_id` than the key, the request is rejected with `403`.
+Every request except `/health` and `/` needs an `X-API-Key` header. The server takes the caller's identity from the key and never from the request body. If the body names a different `customer_id` than the key, the request is rejected with `403`. The `customer` role is the beneficiary role.
 
 | Key | Identity | Role |
 |---|---|---|
-| `customer-001-key` | CUST-001 | customer |
-| `customer-002-key` | CUST-002 | customer |
-| `customer-003-key` | CUST-003 | customer |
+| `customer-001-key` | BEN-001 · Alex Lopes | customer (beneficiary) |
+| `customer-002-key` | BEN-002 · Ariana Sun | customer (beneficiary) |
+| `customer-003-key` | BEN-003 · Suji Hancock | customer (beneficiary) |
+| `customer-004-key` | BEN-004 · Raphael Kusuma | customer (beneficiary) |
+| `customer-005-key` | BEN-005 · Jeromy Chang | customer (beneficiary) |
 | `supervisor-key` | SUP-001 | supervisor |
 | `admin-key` | ADMIN-001 | admin |
 
-Seed orders for CUST-001:
+Seed healthcare expenses for BEN-001:
 
-| Order | Item | Amount | Notes |
-|---|---|---|---|
-| ORD-101 | Wireless headphones | $45 | Within all limits |
-| ORD-102 | Mechanical keyboard | $120 | Over the $100 cap |
-| ORD-103 | 4K monitor | $450 | Over the $100 cap |
-| ORD-104 | eBook (digital) | $30 | Non-refundable |
-| ORD-105 | Laptop stand | $60 | 45 days old, outside the return window |
+| Expense | Service | Coverage | Amount | Notes |
+|---|---|---|---|---|
+| EXP-101 | Urgent care visit copay | covered | $45 | Within all limits |
+| EXP-102 | Physical therapy session | covered | $120 | Over the $100 cap |
+| EXP-103 | Outpatient MRI scan | covered | $450 | Over the $100 cap |
+| EXP-104 | Cosmetic teeth whitening | excluded | $30 | Not reimbursable (POL-003) |
+| EXP-105 | Routine eye exam | covered | $60 | 45 days old, outside the 30-day window unless it was emergency care (POL-002) |
+
+The other beneficiaries each have one or two expenses (EXP-201, EXP-202, EXP-301, EXP-401, EXP-501).
 
 ## Endpoints
 
 | Method & path | Role | Purpose |
 |---|---|---|
 | `GET /health` | any | Liveness |
-| `POST /tasks` | customer | `{"task":"refund_request","data":{"order_id","amount","reason"}}` → runs the full agent workflow |
+| `POST /tasks` | customer | `{"task":"refund_request","data":{"order_id","amount","reason"}}` → runs the full reimbursement workflow (`order_id` is the expense ID) |
 | `GET /logs` | supervisor, admin | Audit log (`?case_id=` to filter) |
 | `GET /logs/verify` | supervisor, admin | Checks the hash chain |
 | `GET /tests` | supervisor, admin | Lists the available red team tests |
 | `POST /tests/rt-01` … `rt-25` | supervisor, admin | Runs an attack suite in a sandbox and writes evidence to `redteam/results/RT-XX/` |
-| `GET /me/orders`, `/me/cases`, `/me/emails` | customer | The caller's own data |
+| `GET /me/orders`, `/me/cases`, `/me/emails` | customer | The beneficiary's own expenses, claims and email |
 | `GET /supervisor/cases?status=ESCALATED` | supervisor | Escalation queue |
 | `POST /supervisor/cases/{id}/decision` | supervisor | `{"approve": true, "comment": "..."}` |
 | `POST /supervisor/kill-switch` | supervisor | `{"active": true, "reason": "..."}` |
 | `GET /guardrails/status` | supervisor, admin | Kill-switch state, limits, and the weekly total so far |
 | `GET /tools` | supervisor, admin | The MCP-style tool list and per-agent permissions |
 | `GET /llm/status` | any | Which LLM backend is active, whether Ollama is reachable and whether a Gemini key is set |
-| `GET /demo/customers` | any authenticated user | Customer profiles for the dashboard |
+| `GET /demo/customers` | any authenticated user | Beneficiary profiles for the dashboard |
 | `GET /policies/vector-stats` | supervisor, admin | ChromaDB collection name and number of indexed vectors |
-| `GET /policies`, `POST /policies` | admin | List or upload refund policies (RAG source) |
+| `GET /policies`, `POST /policies` | admin | List or upload benefits program policies (RAG source) |
 | `POST /admin/reset` | admin | Wipes the demo data and reseeds it |
 
 Example:
 ```bash
 curl -s localhost:8000/tasks -H 'X-API-Key: customer-001-key' -H 'Content-Type: application/json' \
-  -d '{"task":"refund_request","data":{"order_id":"ORD-101","amount":45,"reason":"Arrived damaged"}}'
+  -d '{"task":"refund_request","data":{"order_id":"EXP-101","amount":45,"reason":"Urgent care visit for a sprained ankle"}}'
 ```
 
 ## Auto-demo walkthrough script (`run_demo.py`)
 
 `run_demo.py` resets the data and then walks through the following:
 
-1. A normal $45 refund is approved.
-2. A $120 refund is escalated, and the supervisor approves it.
+1. A normal $45 reimbursement is approved.
+2. A $120 reimbursement is escalated, and the supervisor approves it.
 3. A request with a spoofed `customer_id` gets `403`.
 4. With the kill switch on, a request gets `REVOKED`.
 5. All 25 red team suites run.
@@ -119,4 +123,4 @@ Add `--no-reset` to keep the current data. `./start.sh demo` runs the same demo 
 ```
 The tests are in `redteam/tests/`, and each one gets a fresh temporary database. Attacks in the `guardrail` category must always be defended. `llm_policy` findings are reported in the evidence and are not treated as test failures.
 
-**Notes & safety:** The demo only calls local endpoints. No real money, email or external model is involved. Do not use `--start-server` on production systems.
+**Notes & safety:** The demo only calls local endpoints. No real money, email or health data is involved, and no external model unless you configure one. Do not use `--start-server` on production systems.

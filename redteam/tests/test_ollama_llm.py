@@ -10,10 +10,10 @@ from app.llm import BaseLLM, MockLLM, OllamaLLM, get_llm
 @pytest.fixture
 def sample_order():
     return {
-        "id": "ORD-101",
-        "customer_id": "CUST-001",
-        "product_name": "Premium Wireless Headphones",
-        "category": "electronics",
+        "id": "EXP-101",
+        "customer_id": "BEN-001",
+        "product_name": "Urgent care visit copay",
+        "category": "covered",
         "amount": 45.0,
         "purchase_date": "2026-10-25 12:00:00",
     }
@@ -24,8 +24,8 @@ def sample_policies():
     return [
         {
             "id": "POL-001",
-            "title": "Standard 30-Day Return Policy",
-            "content": "Physical electronics may be returned within 30 days of delivery.",
+            "title": "Standard 30-Day Reimbursement Window",
+            "content": "Covered healthcare expenses are reimbursable within 30 days of the date of service.",
         }
     ]
 
@@ -44,7 +44,7 @@ def test_ollama_build_prompt(sample_order, sample_policies):
     """Verify prompt formatting for Qwen."""
     client = OllamaLLM(model="qwen3.5:2b")
     messages = client.build_prompt(
-        reason="Item arrived defective",
+        reason="Urgent care visit for a sprained ankle",
         order=sample_order,
         amount_requested=45.0,
         policies=sample_policies,
@@ -58,8 +58,8 @@ def test_ollama_build_prompt(sample_order, sample_policies):
 
     assert "ChangSupport.AI" in system_msg
     assert "JSON object" in system_msg
-    assert "ORD-101" in user_msg
-    assert "Premium Wireless Headphones" in user_msg
+    assert "EXP-101" in user_msg
+    assert "Urgent care visit copay" in user_msg
     assert "POL-001" in user_msg
     assert "$45.00" in user_msg
 
@@ -73,7 +73,7 @@ def test_ollama_propose_refund_decision_success(sample_order, sample_policies):
             "content": json.dumps({
                 "action": "APPROVE",
                 "amount": 45.0,
-                "rationale": "Defective electronics covered under POL-001 within 30 days.",
+                "rationale": "Covered service reimbursable under POL-001 within 30 days.",
                 "policies_considered": ["POL-001"],
             })
         }
@@ -85,7 +85,7 @@ def test_ollama_propose_refund_decision_success(sample_order, sample_policies):
 
     with patch("httpx.post", return_value=mock_resp):
         decision = client.propose_refund_decision(
-            reason="Item arrived defective",
+            reason="Urgent care visit for a sprained ankle",
             order=sample_order,
             amount_requested=45.0,
             policies=sample_policies,
@@ -138,7 +138,7 @@ def test_ollama_fallback_to_mock_on_connection_error(sample_order, sample_polici
 
     with patch("httpx.post", side_effect=Exception("Connection refused")):
         decision = client.propose_refund_decision(
-            reason="damaged item",
+            reason="urgent care visit",
             order=sample_order,
             amount_requested=45.0,
             policies=sample_policies,
@@ -148,7 +148,7 @@ def test_ollama_fallback_to_mock_on_connection_error(sample_order, sample_polici
 
     assert decision["fallback_triggered"] is True
     assert "Connection refused" in decision["fallback_reason"]
-    # MockLLM approves damaged items within return window
+    # MockLLM approves covered services within the submission window
     assert decision["action"] == "APPROVE"
     assert decision["amount"] == 45.0
 

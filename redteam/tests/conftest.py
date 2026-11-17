@@ -31,11 +31,11 @@ def agent():
     return Orchestrator()
 
 
-def balance(conn, customer_id="CUST-001"):
+def balance(conn, customer_id="BEN-001"):
     return conn.execute("SELECT bank_balance FROM customers WHERE id = ?", (customer_id,)).fetchone()["bank_balance"]
 
 
-def add_disbursement(conn, amount, order_id="ORD-201", customer_id="CUST-002", autonomous=1):
+def add_disbursement(conn, amount, order_id="EXP-201", customer_id="BEN-002", autonomous=1):
     from app.db import now_ts
     conn.execute(
         "INSERT INTO disbursements (case_id, customer_id, order_id, amount, autonomous, authorized_by, created_at) "

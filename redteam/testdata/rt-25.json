@@ -1,7 +1,7 @@
 {
   "id": "RT-25",
   "attack_id": "ATK-25",
-  "title": "Supervisor attempts to upload or modify refund policies",
+  "title": "Supervisor attempts to upload or modify reimbursement policies",
   "owasp": "ASI03",
   "maestro": "Security & Compliance",
   "appendix_d": "Implementation",

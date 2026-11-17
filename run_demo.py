@@ -5,8 +5,8 @@ Walkthrough script for ChangSupport.AI (extends the course starter's run_demo.py
 Calls the local endpoints to show the full system and collect evidence:
   - GET  /health
   - POST /admin/reset                    (fresh seed data; skip with --no-reset)
-  - POST /tasks                          (normal refund -> APPROVED)
-  - POST /tasks + supervisor decision    (refund over $100 -> ESCALATED -> supervisor approves)
+  - POST /tasks                          (normal reimbursement -> APPROVED)
+  - POST /tasks + supervisor decision    (reimbursement over $100 -> ESCALATED -> supervisor approves)
   - POST /tasks with spoofed customer_id (identity check -> 403)
   - Kill switch on -> /tasks -> REVOKED -> kill switch off
   - POST /tests/rt-01 .. rt-25           (red-team attacks, run in sandbox)
@@ -134,24 +134,24 @@ def run(client: Client, reset: bool) -> Dict[str, Any]:
         record("reset_demo_data", client.call("POST", "/admin/reset", "admin"), "seed data restored")
 
     print("\n== Normal workflow ==")
-    r = refund(client, "ORD-101", 45, "Item arrived damaged and the headphones do not turn on.")
+    r = refund(client, "EXP-101", 45, "Urgent care visit for a sprained ankle. Itemized receipt attached.")
     record("refund_45_within_limits", r, result_status(r))
 
-    r = refund(client, "ORD-102", 120, "Defective keyboard switches")
+    r = refund(client, "EXP-102", 120, "Physical therapy session prescribed after knee surgery")
     record("refund_120_over_cap", r, result_status(r))
     case_id = (r.get("json") or {}).get("result", {}).get("case_id")
     if case_id:
         d = client.call("POST", f"/supervisor/cases/{case_id}/decision", "supervisor",
-                        {"approve": True, "comment": "Verified defect with supplier."})
+                        {"approve": True, "comment": "Verified itemized bill and physician referral."})
         record("supervisor_approves_escalation", d, (d.get("json") or {}).get("status", f"HTTP {d.get('status_code')}"))
 
     print("\n== Guardrails in action ==")
-    r = refund(client, "ORD-201", 35, "Damaged", extra={"customer_id": "CUST-002"})
+    r = refund(client, "EXP-201", 35, "Prescription copay", extra={"customer_id": "BEN-002"})
     record("spoofed_customer_id", r, result_status(r))
 
     record("kill_switch_on", client.call("POST", "/supervisor/kill-switch", "supervisor",
                                          {"active": True, "reason": "demo containment"}))
-    r = refund(client, "ORD-101", 45, "Arrived damaged")
+    r = refund(client, "EXP-101", 45, "Urgent care visit copay")
     record("refund_after_kill_switch", r, result_status(r))
     record("kill_switch_off", client.call("POST", "/supervisor/kill-switch", "supervisor",
                                           {"active": False, "reason": "demo resume"}))

@@ -49,15 +49,15 @@ function table(columns, rows, emptyText) {
 // Seeded API keys (app/config.py). Each workspace page has its own "Acting as"
 // picker so a reviewer can switch identity and watch role checks reject (403).
 const ACCOUNTS = [
-  { key: "customer-001-key", id: "CUST-001", name: "Alex Lopes", role: "customer" },
-  { key: "customer-002-key", id: "CUST-002", name: "Ariana Sun", role: "customer" },
-  { key: "customer-003-key", id: "CUST-003", name: "Suji Hancock", role: "customer" },
-  { key: "customer-004-key", id: "CUST-004", name: "Raphael Kusuma", role: "customer" },
-  { key: "customer-005-key", id: "CUST-005", name: "Jeromy Chang", role: "customer" },
+  { key: "customer-001-key", id: "BEN-001", name: "Alex Lopes", role: "customer" },
+  { key: "customer-002-key", id: "BEN-002", name: "Ariana Sun", role: "customer" },
+  { key: "customer-003-key", id: "BEN-003", name: "Suji Hancock", role: "customer" },
+  { key: "customer-004-key", id: "BEN-004", name: "Raphael Kusuma", role: "customer" },
+  { key: "customer-005-key", id: "BEN-005", name: "Jeromy Chang", role: "customer" },
   { key: "supervisor-key", id: "SUP-001", name: "Supervisor", role: "supervisor" },
   { key: "admin-key", id: "ADMIN-001", name: "Admin", role: "admin" },
 ];
-const ROLE_LABEL = { customer: "Customer", supervisor: "Supervisor", admin: "Admin" };
+const ROLE_LABEL = { customer: "Beneficiary", supervisor: "Supervisor", admin: "Admin" };
 const accountByKey = (key) => ACCOUNTS.find(a => a.key === key);
 
 // The header persona is the one identity every workspace page acts as.
@@ -147,7 +147,7 @@ if (roleSel) {
   roleSel.addEventListener("change", () => setPersona(roleSel.value, true));
 }
 
-// Customers only get the customer portal: other workspace tabs are hidden and
+// Beneficiaries (the customer role) only get the beneficiary portal: other workspace tabs are hidden and
 // any other page sends them to /customer. Staff personas see every tab.
 const CUSTOMER_PAGE = "/customer";
 function applyPersonaScope() {
@@ -178,7 +178,7 @@ async function loadHealth() {
 
 // Returns true when the reset ran (the user can cancel the confirm).
 async function resetDemoData(keyOverride) {
-  if (!confirm("Reset all demo data? Customers, orders, cases, emails, policies, the vector collection and the audit log return to their seed state.")) return false;
+  if (!confirm("Reset all demo data? Beneficiaries, expenses, cases, emails, policies, the vector collection and the audit log return to their seed state.")) return false;
   await api("POST", "/admin/reset", null, keyOverride || "admin-key");
   toast("Demo data reset to its seed state.");
   await loadHealth();

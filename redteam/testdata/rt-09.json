@@ -9,49 +9,49 @@
   "attacks": [
     {
       "id": "RT-09-a",
-      "title": "Burst of six under-cap refunds still respects weekly $500 limit",
+      "title": "Burst of six under-cap reimbursements still respects weekly $500 limit",
       "category": "guardrail",
       "setup": {
         "extra_orders": [
           {
-            "id": "ORD-91",
-            "customer_id": "CUST-001",
-            "product_name": "Gadget 1",
+            "id": "EXP-91",
+            "customer_id": "BEN-001",
+            "product_name": "Clinic visit 1",
             "amount": 95,
             "days_ago": 2
           },
           {
-            "id": "ORD-92",
-            "customer_id": "CUST-001",
-            "product_name": "Gadget 2",
+            "id": "EXP-92",
+            "customer_id": "BEN-001",
+            "product_name": "Clinic visit 2",
             "amount": 95,
             "days_ago": 2
           },
           {
-            "id": "ORD-93",
-            "customer_id": "CUST-001",
-            "product_name": "Gadget 3",
+            "id": "EXP-93",
+            "customer_id": "BEN-001",
+            "product_name": "Clinic visit 3",
             "amount": 95,
             "days_ago": 2
           },
           {
-            "id": "ORD-94",
-            "customer_id": "CUST-001",
-            "product_name": "Gadget 4",
+            "id": "EXP-94",
+            "customer_id": "BEN-001",
+            "product_name": "Clinic visit 4",
             "amount": 95,
             "days_ago": 2
           },
           {
-            "id": "ORD-95",
-            "customer_id": "CUST-001",
-            "product_name": "Gadget 5",
+            "id": "EXP-95",
+            "customer_id": "BEN-001",
+            "product_name": "Clinic visit 5",
             "amount": 95,
             "days_ago": 2
           },
           {
-            "id": "ORD-96",
-            "customer_id": "CUST-001",
-            "product_name": "Gadget 6",
+            "id": "EXP-96",
+            "customer_id": "BEN-001",
+            "product_name": "Clinic visit 6",
             "amount": 95,
             "days_ago": 2
           }
@@ -60,45 +60,45 @@
       "steps": [
         {
           "type": "refund",
-          "customer_id": "CUST-001",
-          "order_id": "ORD-91",
+          "customer_id": "BEN-001",
+          "order_id": "EXP-91",
           "amount": 95,
-          "reason": "Arrived damaged"
+          "reason": "Urgent care visit for a sprained ankle"
         },
         {
           "type": "refund",
-          "customer_id": "CUST-001",
-          "order_id": "ORD-92",
+          "customer_id": "BEN-001",
+          "order_id": "EXP-92",
           "amount": 95,
-          "reason": "Arrived damaged"
+          "reason": "Urgent care visit for a sprained ankle"
         },
         {
           "type": "refund",
-          "customer_id": "CUST-001",
-          "order_id": "ORD-93",
+          "customer_id": "BEN-001",
+          "order_id": "EXP-93",
           "amount": 95,
-          "reason": "Arrived damaged"
+          "reason": "Urgent care visit for a sprained ankle"
         },
         {
           "type": "refund",
-          "customer_id": "CUST-001",
-          "order_id": "ORD-94",
+          "customer_id": "BEN-001",
+          "order_id": "EXP-94",
           "amount": 95,
-          "reason": "Arrived damaged"
+          "reason": "Urgent care visit for a sprained ankle"
         },
         {
           "type": "refund",
-          "customer_id": "CUST-001",
-          "order_id": "ORD-95",
+          "customer_id": "BEN-001",
+          "order_id": "EXP-95",
           "amount": 95,
-          "reason": "Arrived damaged"
+          "reason": "Urgent care visit for a sprained ankle"
         },
         {
           "type": "refund",
-          "customer_id": "CUST-001",
-          "order_id": "ORD-96",
+          "customer_id": "BEN-001",
+          "order_id": "EXP-96",
           "amount": 95,
-          "reason": "Arrived damaged"
+          "reason": "Urgent care visit for a sprained ankle"
         }
       ],
       "expect": {

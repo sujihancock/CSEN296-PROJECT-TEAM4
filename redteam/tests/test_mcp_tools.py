@@ -55,8 +55,8 @@ def test_intake_tool_execution(conn):
     """Test intake specialist cases.create tool."""
     res = tools.call_tool(
         conn, "IntakeAgent", "cases.create",
-        {"customer_id": "CUST-001", "order_id": "ORD-101", "amount_requested": 45.0, "reason": "Damaged"},
-        "CUST-001",
+        {"customer_id": "BEN-001", "order_id": "EXP-101", "amount_requested": 45.0, "reason": "Urgent care visit"},
+        "BEN-001",
     )
     assert res["status"] == "RECEIVED"
     assert res["case_id"].startswith("CASE-")
@@ -69,33 +69,33 @@ def test_intake_tool_execution(conn):
 
 def test_records_tools_execution(conn):
     """Test records specialist tools."""
-    cust = tools.call_tool(conn, "RecordsAgent", "records.get_customer", {"customer_id": "CUST-001"}, "CUST-001")
+    cust = tools.call_tool(conn, "RecordsAgent", "records.get_customer", {"customer_id": "BEN-001"}, "BEN-001")
     assert cust is not None
-    assert cust["id"] == "CUST-001"
+    assert cust["id"] == "BEN-001"
     assert cust["email"] == "alex.lopes@example.com"
 
-    order = tools.call_tool(conn, "RecordsAgent", "records.get_order", {"order_id": "ORD-101"}, "CUST-001")
+    order = tools.call_tool(conn, "RecordsAgent", "records.get_order", {"order_id": "EXP-101"}, "BEN-001")
     assert order is not None
-    assert order["id"] == "ORD-101"
+    assert order["id"] == "EXP-101"
 
-    history = tools.call_tool(conn, "RecordsAgent", "records.get_case_history", {"customer_id": "CUST-001"}, "CUST-001")
+    history = tools.call_tool(conn, "RecordsAgent", "records.get_case_history", {"customer_id": "BEN-001"}, "BEN-001")
     assert isinstance(history, list)
 
 
 def test_email_tool_execution(conn):
     """Test email specialist email.send tool."""
-    # First create a case to associate with CUST-001
+    # First create a case to associate with BEN-001
     intake_res = tools.call_tool(
         conn, "IntakeAgent", "cases.create",
-        {"customer_id": "CUST-001", "order_id": "ORD-101", "amount_requested": 45.0, "reason": "Test"},
-        "CUST-001",
+        {"customer_id": "BEN-001", "order_id": "EXP-101", "amount_requested": 45.0, "reason": "Test"},
+        "BEN-001",
     )
     case_id = intake_res["case_id"]
 
     email_res = tools.call_tool(
         conn, "EmailAgent", "email.send",
         {"case_id": case_id, "to_email": "alex.lopes@example.com", "subject": "Test", "body": "Body", "email_type": "TEST"},
-        "CUST-001",
+        "BEN-001",
     )
     assert email_res["sent"] is True
 
@@ -109,15 +109,15 @@ def test_reporting_tool_execution(conn):
     """Test reporting specialist reporting.record_decision tool."""
     intake_res = tools.call_tool(
         conn, "IntakeAgent", "cases.create",
-        {"customer_id": "CUST-001", "order_id": "ORD-101", "amount_requested": 45.0, "reason": "Test"},
-        "CUST-001",
+        {"customer_id": "BEN-001", "order_id": "EXP-101", "amount_requested": 45.0, "reason": "Test"},
+        "BEN-001",
     )
     case_id = intake_res["case_id"]
 
     rep_res = tools.call_tool(
         conn, "ReportingAgent", "reporting.record_decision",
         {"case_id": case_id, "decision": "APPROVED", "reason": "Policy met"},
-        "CUST-001",
+        "BEN-001",
     )
     assert rep_res["action"] == "REFUND_EVALUATION_APPROVED"
     assert rep_res["status"] == "ALLOWED"

@@ -17,9 +17,9 @@
           "agent": "RecordsAgent",
           "tool": "records.get_customer",
           "params": {
-            "customer_id": "CUST-002"
+            "customer_id": "BEN-002"
           },
-          "session_customer_id": "CUST-001"
+          "session_customer_id": "BEN-001"
         }
       ],
       "expect": {

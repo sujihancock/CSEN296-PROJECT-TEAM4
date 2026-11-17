@@ -11,10 +11,10 @@ from app.llm import GeminiLLM, MockLLM, get_llm
 @pytest.fixture
 def sample_order():
     return {
-        "id": "ORD-101",
-        "customer_id": "CUST-001",
-        "product_name": "Premium Wireless Headphones",
-        "category": "electronics",
+        "id": "EXP-101",
+        "customer_id": "BEN-001",
+        "product_name": "Urgent care visit copay",
+        "category": "covered",
         "amount": 45.0,
         "purchase_date": "2026-10-25 12:00:00",
     }
@@ -22,8 +22,8 @@ def sample_order():
 
 @pytest.fixture
 def sample_policies():
-    return [{"id": "POL-001", "title": "Standard 30-Day Return Policy",
-             "content": "Physical electronics may be returned within 30 days of delivery."}]
+    return [{"id": "POL-001", "title": "Standard 30-Day Reimbursement Window",
+             "content": "Covered healthcare expenses are reimbursable within 30 days of the date of service."}]
 
 
 def _gemini_response(text, thought=None):
@@ -35,7 +35,7 @@ def _gemini_response(text, thought=None):
 
 
 def _decide(client, order, policies, **kw):
-    args = dict(reason="Item arrived defective", order=order, amount_requested=45.0,
+    args = dict(reason="Urgent care visit for a sprained ankle", order=order, amount_requested=45.0,
                 policies=policies, days_since_purchase=15, return_window_days=30)
     args.update(kw)
     return client.propose_refund_decision(**args)
@@ -56,7 +56,7 @@ def test_factory_returns_gemini_with_key(monkeypatch):
 def test_request_shape_and_key_header(sample_order, sample_policies):
     client = GeminiLLM(api_key="test-key", model="gemini-test")
     answer = json.dumps({"action": "APPROVE", "amount": 45.0,
-                         "rationale": "Defective, within window (POL-001).", "policies_considered": ["POL-001"]})
+                         "rationale": "Covered service, within window (POL-001).", "policies_considered": ["POL-001"]})
     with patch("httpx.post", return_value=_gemini_response(answer, thought="thinking...")) as post:
         decision = _decide(client, sample_order, sample_policies)
 
@@ -67,7 +67,7 @@ def test_request_shape_and_key_header(sample_order, sample_policies):
     assert kwargs["headers"]["x-goog-api-key"] == "test-key"
     body = kwargs["json"]
     assert "ChangSupport.AI" in body["systemInstruction"]["parts"][0]["text"]
-    assert "ORD-101" in body["contents"][0]["parts"][0]["text"]
+    assert "EXP-101" in body["contents"][0]["parts"][0]["text"]
     assert body["generationConfig"]["responseMimeType"] == "application/json"  # Gemini model: JSON mode on
 
     assert decision["action"] == "APPROVE"
@@ -79,7 +79,7 @@ def test_falls_back_to_mock_on_error(sample_order, sample_policies, monkeypatch)
     monkeypatch.setattr(config, "GEMINI_FALLBACK_TO_MOCK", True)
     client = GeminiLLM(api_key="test-key")
     with patch("httpx.post", side_effect=Exception("403 API key not valid")):
-        decision = _decide(client, sample_order, sample_policies, reason="damaged item")
+        decision = _decide(client, sample_order, sample_policies, reason="urgent care visit")
     assert decision["fallback_triggered"] is True
     assert "403" in decision["fallback_reason"]
     assert decision["action"] == "APPROVE"

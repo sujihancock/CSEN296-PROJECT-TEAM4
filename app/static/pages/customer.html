@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Customer portal · ChangSupport.AI</title>
+  <title>Beneficiary portal · ChangSupport.AI</title>
   <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body>
@@ -14,9 +14,9 @@
   <div id="view-customer" class="ov">
     <div class="ov-head">
       <div class="ov-head-title">
-        <h1>Customer portal</h1>
+        <h1>Beneficiary portal</h1>
         <p class="ov-head-meta">
-          <span>Tenant-isolated · only this account's orders, cases and email</span>
+          <span>Tenant-isolated · only this beneficiary's expenses, claims and email</span>
           <span class="ov-sep" aria-hidden="true"></span>
           <span id="cuUpdated" aria-live="polite">Loading…</span>
         </p>
@@ -29,35 +29,35 @@
     <div id="cuRoleNote" class="pg-role-note" hidden></div>
 
     <section class="ov-band pg-band-4" aria-label="Account summary">
-      <div class="ov-cell" id="cuAccountCell"><span class="ov-cell-label">Account</span><span class="ov-skel" style="width:70%"></span></div>
-      <div class="ov-cell" id="cuBalanceCell"><span class="ov-cell-label">Bank balance</span><span class="ov-skel" style="width:50%"></span></div>
+      <div class="ov-cell" id="cuAccountCell"><span class="ov-cell-label">Beneficiary</span><span class="ov-skel" style="width:70%"></span></div>
+      <div class="ov-cell" id="cuBalanceCell"><span class="ov-cell-label">Payment account</span><span class="ov-skel" style="width:50%"></span></div>
       <div class="ov-cell" id="cuOpenCell"><span class="ov-cell-label">Open claims</span><span class="ov-skel" style="width:40%"></span></div>
-      <div class="ov-cell" id="cuRefundedCell"><span class="ov-cell-label">Refunded to date</span><span class="ov-skel" style="width:50%"></span></div>
+      <div class="ov-cell" id="cuRefundedCell"><span class="ov-cell-label">Reimbursed to date</span><span class="ov-skel" style="width:50%"></span></div>
     </section>
 
     <div class="ov-grid">
       <div class="ov-col">
         <section class="ov-panel" aria-labelledby="cuClaimTitle">
           <header class="ov-panel-head">
-            <h2 id="cuClaimTitle">File a refund claim</h2>
+            <h2 id="cuClaimTitle">Request a reimbursement</h2>
             <span class="ov-panel-note">Handled by the agent pipeline</span>
           </header>
           <form id="refundForm" class="pg-form">
             <div class="form-group">
-              <label for="orderSel">Order</label>
+              <label for="orderSel">Healthcare expense</label>
               <select id="orderSel" required></select>
             </div>
             <div id="cuOrderFacts" class="pg-facts" aria-live="polite"></div>
             <div class="form-group">
-              <label for="amount">Amount to refund</label>
+              <label for="amount">Amount to reimburse</label>
               <div class="currency-input-wrapper">
                 <span class="currency-symbol font-mono">$</span>
                 <input id="amount" type="number" step="0.01" min="0.01" required placeholder="0.00">
               </div>
             </div>
             <div class="form-group">
-              <label for="reason">What went wrong?</label>
-              <textarea id="reason" required rows="3" placeholder="For example: arrived with a cracked screen"></textarea>
+              <label for="reason">Describe the care you received</label>
+              <textarea id="reason" required rows="3" placeholder="For example: urgent care visit for a sprained ankle, itemized receipt attached"></textarea>
             </div>
             <ul id="cuHints" class="pg-hints" aria-live="polite"></ul>
             <div class="form-actions">
@@ -87,7 +87,7 @@
 
         <section class="ov-panel" aria-labelledby="cuOrdersTitle">
           <header class="ov-panel-head">
-            <h2 id="cuOrdersTitle">Orders</h2>
+            <h2 id="cuOrdersTitle">Healthcare expenses</h2>
             <span class="ov-panel-note" id="cuOrdersNote">—</span>
           </header>
           <ul id="myOrders" class="pg-list"><li><span class="ov-skel ov-skel--block"></span></li></ul>

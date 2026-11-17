@@ -6,7 +6,7 @@ from app.db import now_ts
 from app.tools.base import ToolContext, tool
 
 
-@tool("cases.create", "Create and assign a refund case.",
+@tool("cases.create", "Create and assign a reimbursement case.",
       {"customer_id": "string", "order_id": "string", "amount_requested": "number", "reason": "string"})
 def cases_create(ctx: ToolContext, customer_id: str, order_id: str, amount_requested: float, reason: str) -> Dict[str, Any]:
     case_id = f"CASE-{uuid.uuid4().hex[:8].upper()}"

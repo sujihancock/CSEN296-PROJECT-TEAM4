@@ -13,7 +13,7 @@ const OV_STATUS_META = {
   UNDER_REVIEW: { label: "In progress", color: "var(--accent-primary)" },
 };
 const AGENT_LABELS = {
-  IntakeAgent: "Intake", RecordsAgent: "Records", RefundsAgent: "Refunds",
+  IntakeAgent: "Intake", RecordsAgent: "Records", RefundsAgent: "Eligibility",
   EmailAgent: "Email", ReportingAgent: "Reporting",
 };
 const MONEY_TOOLS = new Set(["bank.disburse"]);
@@ -71,8 +71,8 @@ function renderOvAuthority(guard) {
   btn.addEventListener("click", () => {
     const engage = !revoked;
     const msg = engage
-      ? "Engage the kill switch?\n\nEvery agent loses payout authority immediately. New refund requests fail closed until a supervisor restores authority."
-      : "Restore agent authority?\n\nAgents resume autonomous refunds within the $100 per-transaction and $500 weekly caps.";
+      ? "Engage the kill switch?\n\nEvery agent loses payout authority immediately. New reimbursement requests fail closed until a supervisor restores authority."
+      : "Restore agent authority?\n\nAgents resume autonomous reimbursements within the $100 per-transaction and $500 weekly caps.";
     if (!confirm(msg)) return;
     busy(btn, async () => {
       await api("POST", "/supervisor/kill-switch",
@@ -83,7 +83,7 @@ function renderOvAuthority(guard) {
   });
   ovCell("ovAuthority", "Agent authority",
     revoked ? "Revoked" : "Active",
-    revoked ? "Kill switch engaged · requests fail closed" : "Autonomous refunds within caps",
+    revoked ? "Kill switch engaged · requests fail closed" : "Autonomous reimbursements within caps",
     { dot: revoked ? "bad" : "ok", subClass: revoked ? "is-bad" : null, extra: [btn] });
 }
 
@@ -182,7 +182,7 @@ function renderOvDecisions(counts, cases, logs, err) {
 
   if (!total) {
     fill("ovDecisions", el("div", { class: "ov-empty" },
-      el("p", {}, "No refund cases have been filed."),
+      el("p", {}, "No reimbursement cases have been filed."),
       el("p", {}, "Run a benchmark scenario in the sandbox and its outcome lands here."),
       el("button", { type: "button", class: "btn btn-sm btn-secondary", "data-goto": "sandbox" }, "Open sandbox")));
     return;
@@ -202,15 +202,15 @@ function renderOvDecisions(counts, cases, logs, err) {
 function renderOvCases(cases, err) {
   if (!cases) { ovFail("ovCases", err ? err.message : "Could not load cases."); return; }
   if (!cases.length) {
-    fill("ovCases", el("div", { class: "ov-empty" }, el("p", {}, "Cases appear here as customers file refund claims.")));
+    fill("ovCases", el("div", { class: "ov-empty" }, el("p", {}, "Cases appear here as beneficiaries request reimbursements.")));
     return;
   }
   const recent = cases.slice().sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at))).slice(0, 8);
   const decider = (c) => c.decided_by ? (c.autonomous ? `${c.decided_by.replace(/Agent$/, "")} agent` : c.decided_by) : "—";
   fill("ovCases", el("div", { class: "table-container" }, table([
     { label: "Case", key: "id", mono: true },
-    { label: "Customer", key: "customer_id", mono: true },
-    { label: "Order", key: "order_id", mono: true },
+    { label: "Beneficiary", key: "customer_id", mono: true },
+    { label: "Expense", key: "order_id", mono: true },
     { label: "Amount", render: r => money(r.amount_requested), num: true },
     { label: "Status", render: r => badge(r.status) },
     { label: "Decided by", render: decider },

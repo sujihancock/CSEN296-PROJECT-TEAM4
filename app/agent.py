@@ -53,16 +53,16 @@ class EmailAgent(Specialist):
     def acknowledge(self, case_id: str, customer: Dict[str, Any], amount: float) -> Dict[str, Any]:
         return self.call(
             "email.send", case_id=case_id, to_email=customer["email"],
-            subject=f"We received your refund request ({case_id})",
-            body=f"Hi {customer['name']}, we received your request for a ${amount:.2f} refund and are reviewing it.",
+            subject=f"We received your reimbursement request ({case_id})",
+            body=f"Hi {customer['name']}, we received your request for ${amount:.2f} in healthcare expense reimbursement and are reviewing your eligibility.",
             email_type="ACKNOWLEDGEMENT",
         )
 
     def notify_decision(self, case_id: str, customer: Dict[str, Any], status: str, reason: str) -> Dict[str, Any]:
         return self.call(
             "email.send", case_id=case_id, to_email=customer["email"],
-            subject=f"Update on your refund request ({case_id}): {status}",
-            body=f"Hi {customer['name']}, your refund request is {status}. {reason}",
+            subject=f"Update on your reimbursement request ({case_id}): {status}",
+            body=f"Hi {customer['name']}, your reimbursement request is {status}. {reason}",
             email_type="DECISION",
         )
 
@@ -172,7 +172,8 @@ class Orchestrator:
 
             order = records.order(order_id)
             history = records.history()
-            step("RecordsAgent", f"Verified order {order_id}; customer has {len(history)} case(s) on file.")
+            step("RecordsAgent", f"Verified expense {order_id} and built the eligibility profile for {customer_id}: "
+                                 f"{len(history)} prior claim(s) on file.")
 
             outcome = refunds.evaluate(case, order, reason)
             step("RefundsAgent", f"LLM proposed {outcome['llm_proposal']['action']} "
@@ -220,7 +221,7 @@ class Orchestrator:
         ).fetchone()
         email_res = tools.insert_email(
             conn, case_id, row["email"],
-            f"Update on your refund request ({case_id}): {result['status']}",
+            f"Update on your reimbursement request ({case_id}): {result['status']}",
             f"Hi {row['name']}, a supervisor reviewed your request. {result['reason']}",
             "DECISION",
         )

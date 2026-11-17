@@ -13,7 +13,7 @@ def insert_email(conn: sqlite3.Connection, case_id: str, to_email: str, subject:
 
 @tool(
     "email.send",
-    "Send an email to a customer via the mock email service provider.",
+    "Send an email to a beneficiary via the mock email service provider.",
     {
         "case_id": "string",
         "to_email": "string",

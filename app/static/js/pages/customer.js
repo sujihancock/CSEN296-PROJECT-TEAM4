@@ -1,11 +1,11 @@
 "use strict";
-// ---------------------------------------------------------------- Customer portal
+// ---------------------------------------------------------------- Beneficiary portal
 // Everything here is read with the picked customer's own key, so the page only
 // ever shows that tenant's orders, cases and email. Pick a non-customer
 // account and every panel shows the 403 instead.
 
-const CU_AUTONOMOUS_CAP = 100;   // config.MAX_AUTONOMOUS_REFUND_PER_TX (not readable by customers)
-const CU_WINDOW_DAYS = 30;       // POL-001 refund window
+const CU_AUTONOMOUS_CAP = 100;   // config.MAX_AUTONOMOUS_REFUND_PER_TX (not readable by beneficiaries)
+const CU_WINDOW_DAYS = 30;       // POL-001 submission window
 const CU_OPEN = new Set(["RECEIVED", "UNDER_REVIEW", "ESCALATED"]);
 let cuOrders = [];
 let cuCases = [];
@@ -22,7 +22,7 @@ async function loadCustomer() {
   cuLoading = true;
   const key = apiKey;
   const acct = persona();
-  roleNote("cuRoleNote", ["customer"], "This page is for customers, so the API rejects its requests with 403. Submitting a claim shows the same rejection.", "customer-001-key");
+  roleNote("cuRoleNote", ["customer"], "This page is for beneficiaries, so the API rejects its requests with 403. Submitting a claim shows the same rejection.", "customer-001-key");
 
   try {
     const [orders, cases, emails, customers] = await Promise.all([
@@ -49,15 +49,15 @@ async function loadCustomer() {
 function renderCuBand(me, orders, cases) {
   const acct = persona();
   if (me) {
-    ovCell("cuAccountCell", "Account", me.name, `${me.id} · ${me.email}`);
-    ovCell("cuBalanceCell", "Bank balance", money(me.bank_balance), `Refunds land in ${me.bank_account}`, { mono: true });
+    ovCell("cuAccountCell", "Beneficiary", me.name, `${me.id} · ${me.email}`);
+    ovCell("cuBalanceCell", "Payment account", money(me.bank_balance), `Reimbursements land in ${me.bank_account}`, { mono: true });
   } else {
-    ovCell("cuAccountCell", "Account", acct ? acct.name : "—", acct ? `${acct.id} · not a customer` : "", { subClass: "is-bad" });
-    ovCell("cuBalanceCell", "Bank balance", "—", "No customer record", { subClass: "is-bad" });
+    ovCell("cuAccountCell", "Beneficiary", acct ? acct.name : "—", acct ? `${acct.id} · not a beneficiary` : "", { subClass: "is-bad" });
+    ovCell("cuBalanceCell", "Payment account", "—", "No beneficiary record", { subClass: "is-bad" });
   }
   if (!cases.ok) {
     ovCell("cuOpenCell", "Open claims", "—", cases.e.message, { subClass: "is-bad" });
-    ovCell("cuRefundedCell", "Refunded to date", "—", cases.e.message, { subClass: "is-bad" });
+    ovCell("cuRefundedCell", "Reimbursed to date", "—", cases.e.message, { subClass: "is-bad" });
     return;
   }
   const open = cases.v.filter(c => CU_OPEN.has(c.status));
@@ -68,7 +68,7 @@ function renderCuBand(me, orders, cases) {
     { dot: waiting ? "warn" : "ok", subClass: waiting ? "is-warn" : null });
   const approved = cases.v.filter(c => c.status === "APPROVED");
   const total = approved.reduce((a, c) => a + (c.amount_requested || 0), 0);
-  ovCell("cuRefundedCell", "Refunded to date", money(total),
+  ovCell("cuRefundedCell", "Reimbursed to date", money(total),
     approved.length ? `${approved.length} approved ${approved.length === 1 ? "claim" : "claims"}` : "No approved claims yet",
     { mono: true });
 }
@@ -77,7 +77,7 @@ function renderCuOrderSelect(orders) {
   const sel = $("orderSel");
   const prev = sel.value;
   if (!orders.ok) {
-    sel.replaceChildren(el("option", { value: "" }, "Orders unavailable"));
+    sel.replaceChildren(el("option", { value: "" }, "Expenses unavailable"));
     sel.disabled = true;
     fill("cuOrderFacts");
     fill("cuHints");
@@ -101,11 +101,11 @@ function renderCuFacts() {
   const refunded = refundedOn(o.id);
   const fact = (k, v, cls) => el("div", { class: "pg-fact" }, el("dt", {}, k), el("dd", { class: cls || null }, v));
   fill("cuOrderFacts", el("dl", {},
-    fact("Product", o.product_name),
-    fact("Type", o.category === "digital" ? "Digital" : "Physical"),
-    fact("Bought", `${shortDate(o.purchase_date)} · ${age === 0 ? "today" : `${age}d ago`}`),
+    fact("Service", o.product_name),
+    fact("Coverage", o.category === "excluded" ? "Excluded" : "Covered"),
+    fact("Date of service", `${shortDate(o.purchase_date)} · ${age === 0 ? "today" : `${age}d ago`}`),
     fact("Paid", money(o.amount), "font-mono"),
-    refunded ? fact("Already refunded", money(refunded), "font-mono") : null));
+    refunded ? fact("Already reimbursed", money(refunded), "font-mono") : null));
   renderCuHints();
 }
 
@@ -119,15 +119,15 @@ function renderCuHints() {
   const hints = [];
   if (!isNaN(amt) && amt > remaining + 0.001) {
     hints.push(["bad", remaining <= 0
-      ? "This order has already been refunded in full, so a new claim will be denied."
-      : `That is more than the ${money(remaining)} still refundable on this order, so the claim will be denied.`]);
+      ? "This expense has already been reimbursed in full, so a new claim will be denied."
+      : `That is more than the ${money(remaining)} still reimbursable for this expense, so the claim will be denied.`]);
   }
   if (!isNaN(amt) && amt > CU_AUTONOMOUS_CAP) {
     hints.push(["warn", `Over the ${money(CU_AUTONOMOUS_CAP)} autonomous limit, so a supervisor makes the call. Nothing is paid until then.`]);
   }
-  if (o.category === "digital") hints.push(["warn", "Digital goods are generally non-refundable under the refund policy."]);
-  else if (age > CU_WINDOW_DAYS) hints.push(["warn", `Bought ${age} days ago, outside the ${CU_WINDOW_DAYS}-day refund window.`]);
-  if (open) hints.push(["info", `You already have an open claim on this order (${open.id}, ${open.status.toLowerCase().replace("_", " ")}).`]);
+  if (o.category === "excluded") hints.push(["warn", "This service is excluded from the benefits program and is generally not reimbursable."]);
+  else if (age > CU_WINDOW_DAYS) hints.push(["warn", `Date of service was ${age} days ago, outside the ${CU_WINDOW_DAYS}-day submission window.`]);
+  if (open) hints.push(["info", `You already have an open claim on this expense (${open.id}, ${open.status.toLowerCase().replace("_", " ")}).`]);
   if (!hints.length && !isNaN(amt) && amt > 0) {
     hints.push(["ok", `Within the ${money(CU_AUTONOMOUS_CAP)} limit, so the agents can decide and pay this without waiting for a person.`]);
   }
@@ -145,14 +145,14 @@ function renderCuCases(cases) {
     : "None yet";
   if (!rows.length) {
     fill("myCases", el("div", { class: "ov-empty" },
-      el("p", {}, "You haven't filed any refund claims."),
+      el("p", {}, "You haven't requested any reimbursements."),
       el("p", {}, "Use the form above. The outcome, and the email you get about it, show up here.")));
     return;
   }
   const by = (c) => !c.decided_by ? "—" : c.autonomous ? "Agent" : "Supervisor";
   fill("myCases", el("div", { class: "table-container" }, table([
     { label: "Claim", key: "id", mono: true },
-    { label: "Order", key: "order_id", mono: true },
+    { label: "Expense", key: "order_id", mono: true },
     { label: "Amount", render: r => money(r.amount_requested), num: true },
     { label: "Status", render: r => badge(r.status) },
     { label: "Why", render: r => el("span", { class: "pg-clamp", title: r.decision_reason || "" }, r.decision_reason || "Being processed") },
@@ -189,8 +189,8 @@ function renderCuInbox(emails) {
 
 function renderCuOrders(orders) {
   if (!orders.ok) { fill("myOrders", el("li", {}, el("p", { class: "ov-error" }, orders.e.message))); $("cuOrdersNote").textContent = "—"; return; }
-  $("cuOrdersNote").textContent = `${orders.v.length} verified ${orders.v.length === 1 ? "purchase" : "purchases"}`;
-  if (!orders.v.length) { fill("myOrders", el("li", { class: "ov-empty" }, "No orders on this account.")); return; }
+  $("cuOrdersNote").textContent = `${orders.v.length} verified ${orders.v.length === 1 ? "expense" : "expenses"}`;
+  if (!orders.v.length) { fill("myOrders", el("li", { class: "ov-empty" }, "No healthcare expenses on file.")); return; }
   fill("myOrders", orders.v.map(o => {
     const latest = cuCases.find(c => c.order_id === o.id);
     const claim = el("button", { type: "button", class: "btn btn-sm btn-ghost", "aria-label": `Start a claim for ${o.id}` }, "Claim");
@@ -214,11 +214,11 @@ function renderCuOrders(orders) {
 function renderCuResult(r) {
   const tone = { APPROVED: "ok", ESCALATED: "warn", DENIED: "bad", BLOCKED: "bad", REVOKED: "bad" }[r.status] || "info";
   const headline = {
-    APPROVED: `Approved. ${money(r.refunded_amount)} is on its way to your bank.`,
+    APPROVED: `Approved. ${money(r.refunded_amount)} is on its way to your payment account.`,
     ESCALATED: "Sent to a supervisor. Nothing has been paid yet.",
     DENIED: "Denied by policy.",
     BLOCKED: "Blocked by a guardrail.",
-    REVOKED: "Refunds are paused right now. Nothing was paid.",
+    REVOKED: "Reimbursements are paused right now. Nothing was paid.",
   }[r.status] || r.status;
   fill("refundResult", el("div", { class: `pg-result ${tone}`, role: "status" },
     el("div", { class: "pg-result-head" }, badge(r.status), r.case_id ? el("span", { class: "font-mono" }, r.case_id) : null),

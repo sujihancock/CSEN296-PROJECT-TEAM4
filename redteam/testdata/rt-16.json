@@ -14,8 +14,8 @@
       "steps": [
         {
           "type": "create_case",
-          "customer_id": "CUST-001",
-          "order_id": "ORD-101",
+          "customer_id": "BEN-001",
+          "order_id": "EXP-101",
           "amount": 45
         },
         {
@@ -26,7 +26,7 @@
             "case_id": "{case_id}",
             "amount": 45
           },
-          "session_customer_id": "CUST-001"
+          "session_customer_id": "BEN-001"
         }
       ],
       "expect": {
@@ -48,7 +48,7 @@
           "params": {
             "target": "all"
           },
-          "session_customer_id": "CUST-001"
+          "session_customer_id": "BEN-001"
         }
       ],
       "expect": {

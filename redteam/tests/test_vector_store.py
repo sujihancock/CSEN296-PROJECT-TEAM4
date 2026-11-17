@@ -19,21 +19,21 @@ def mem_store():
 def test_vector_store_index_and_semantic_search(mem_store):
     mem_store.index_policy(
         "POL-001",
-        "Physical Goods Refund Policy",
-        "Physical items can be returned within 30 days for a full refund.",
-        "physical refund 30 days",
+        "Covered Services Reimbursement Policy",
+        "Covered healthcare expenses are reimbursed in full within 30 days of the date of service.",
+        "covered reimbursement 30 days",
     )
     mem_store.index_policy(
         "POL-003",
-        "Digital Download License Policy",
-        "E-books and digital software downloads cannot be refunded once downloaded.",
-        "digital ebook license non-refundable",
+        "Excluded Cosmetic Services Policy",
+        "Cosmetic procedures such as teeth whitening are excluded from the program and cannot be reimbursed.",
+        "excluded cosmetic whitening not reimbursable",
     )
 
-    hits = mem_store.search_policies("I bought an electronic book PDF and want my money back", top_k=1)
+    hits = mem_store.search_policies("I paid for a cosmetic dental whitening and want to be paid back", top_k=1)
     assert len(hits) == 1
     assert hits[0]["id"] == "POL-003"
-    assert "Digital" in hits[0]["title"]
+    assert "Excluded" in hits[0]["title"]
 
 
 def test_vector_store_upsert(mem_store):
@@ -83,8 +83,8 @@ def test_retriever_dual_write_and_sync(tmp_path):
         conn,
         "POL-TEST",
         "Test Policy",
-        "Customers may claim refunds if defective.",
-        "defective return",
+        "Beneficiaries may claim reimbursement for billing errors.",
+        "billing error reimbursement",
         "admin",
     )
     assert res["status"] == "INDEXED"
@@ -95,8 +95,8 @@ def test_retriever_dual_write_and_sync(tmp_path):
     assert row["title"] == "Test Policy"
 
     # Verify semantic search through retriever
-    results = retriever.search(conn, "broken and defective product claim")
-    # Seeded POL-002 (defective goods) can legitimately outrank it; what matters
+    results = retriever.search(conn, "provider billing error on my claim")
+    # Seeded POL-002 (emergency / billing error) can legitimately outrank it; what matters
     # is that the new policy was indexed and comes back from vector search.
     assert "POL-TEST" in [r["id"] for r in results]
     conn.close()

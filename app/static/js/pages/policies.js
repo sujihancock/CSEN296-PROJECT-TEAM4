@@ -66,7 +66,7 @@ function renderAdPolicies(res) {
   const rows = q ? res.v.filter(p => [p.id, p.title, p.content, p.tags].join(" ").toLowerCase().includes(q)) : res.v;
   if (!res.v.length) {
     fill("policies", el("li", { class: "ov-empty" },
-      el("p", {}, "The index is empty, so the Refunds agent has no policy to cite."),
+      el("p", {}, "The index is empty, so the eligibility agent has no policy to cite."),
       el("p", {}, "Index one with the form, or reset demo data to restore the seed set.")));
     return;
   }

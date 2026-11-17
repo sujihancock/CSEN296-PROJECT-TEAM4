@@ -111,16 +111,16 @@ def evaluate_refund(conn: sqlite3.Connection, case_id: str, amount: float, sessi
         return _kill_switch_decision()
 
     if not isinstance(amount, (int, float)) or not math.isfinite(amount) or amount <= 0:
-        return Decision(BLOCKED, "INVALID_AMOUNT", f"Refund amount {amount!r} is not a positive number.")
+        return Decision(BLOCKED, "INVALID_AMOUNT", f"Reimbursement amount {amount!r} is not a positive number.")
 
     case = _get(conn, "cases", case_id)
     if not case:
-        return Decision(BLOCKED, "CASE_NOT_FOUND", f"Every refund must match an existing case; {case_id} does not exist.")
+        return Decision(BLOCKED, "CASE_NOT_FOUND", f"Every reimbursement must match an existing case; {case_id} does not exist.")
 
     if case["customer_id"] != session_customer_id:
         return Decision(
             BLOCKED, "IDENTITY_PRIVILEGE_MISMATCH",
-            f"Customer {session_customer_id} does not own case {case_id}. Cross-customer access blocked.",
+            f"Beneficiary {session_customer_id} does not own case {case_id}. Cross-beneficiary access blocked.",
             {"owner": case["customer_id"], "requester": session_customer_id},
         )
 
@@ -136,13 +136,13 @@ def evaluate_refund(conn: sqlite3.Connection, case_id: str, amount: float, sessi
 
     order = _get(conn, "orders", case["order_id"])
     if not order or order["customer_id"] != case["customer_id"]:
-        return Decision(BLOCKED, "IDENTITY_PRIVILEGE_MISMATCH", f"Order {case['order_id']} does not belong to the case owner.")
+        return Decision(BLOCKED, "IDENTITY_PRIVILEGE_MISMATCH", f"Expense {case['order_id']} does not belong to the case owner.")
 
     already = refunded_total_for_order(conn, order["id"])
     if already + amount > float(order["amount"]) + 0.005:
         return Decision(
             BLOCKED, "AMOUNT_EXCEEDS_ORDER",
-            f"Refund ${amount:.2f} plus ${already:.2f} already refunded exceeds the order total ${order['amount']:.2f}.",
+            f"Reimbursement ${amount:.2f} plus ${already:.2f} already reimbursed exceeds the billed amount ${order['amount']:.2f}.",
             {"order_amount": order["amount"], "already_refunded": already, "requested": amount},
         )
 
@@ -158,12 +158,12 @@ def evaluate_refund(conn: sqlite3.Connection, case_id: str, amount: float, sessi
     if weekly + amount > config.MAX_WEEKLY_AUTONOMOUS_REFUNDS:
         return Decision(
             ESCALATED, "WEEKLY_CAP_EXCEEDED",
-            f"Weekly autonomous refunds (${weekly:.2f} + ${amount:.2f}) would exceed the "
+            f"Weekly autonomous reimbursements (${weekly:.2f} + ${amount:.2f}) would exceed the "
             f"${config.MAX_WEEKLY_AUTONOMOUS_REFUNDS:.2f} weekly safety cap. Escalated to a supervisor.",
             {"current_total": weekly, "cap": config.MAX_WEEKLY_AUTONOMOUS_REFUNDS, "amount": amount},
         )
 
-    return Decision(ALLOWED, "POLICY_PASSED", "Within autonomous refund limits.", {"weekly_total_before": weekly})
+    return Decision(ALLOWED, "POLICY_PASSED", "Within autonomous reimbursement limits.", {"weekly_total_before": weekly})
 
 
 def disburse_refund(conn: sqlite3.Connection, case_id: str, amount: float, session_customer_id: str, agent: str) -> Dict[str, Any]:
@@ -223,7 +223,7 @@ def supervisor_decide(conn: sqlite3.Connection, case_id: str, supervisor_id: str
             if amount <= 0 or already + amount > float(order["amount"]) + 0.005:
                 conn.rollback()
                 raise GuardrailViolation(Decision(
-                    BLOCKED, "AMOUNT_EXCEEDS_ORDER", "Approval would refund more than the order total."))
+                    BLOCKED, "AMOUNT_EXCEEDS_ORDER", "Approval would reimburse more than the billed amount."))
             new_balance = _pay(conn, case, amount, autonomous=False, authorized_by=supervisor_id)
         status = "APPROVED" if approve else "DENIED"
         reason = f"{'Approved' if approve else 'Denied'} by supervisor {supervisor_id}. Note: {comment}"
@@ -258,24 +258,24 @@ def mark_case(conn: sqlite3.Connection, case_id: str, status: str, reason: str) 
 
 def _mismatch(what: str, session: str) -> Decision:
     return Decision(BLOCKED, "IDENTITY_PRIVILEGE_MISMATCH",
-                    f"Customer {session} is not allowed to access {what}. Cross-customer access blocked.")
+                    f"Beneficiary {session} is not allowed to access {what}. Cross-beneficiary access blocked.")
 
 
 def _owns_customer(conn, params, session) -> Optional[Decision]:
     target = params.get("customer_id")
-    return None if target == session else _mismatch(f"customer {target}", session)
+    return None if target == session else _mismatch(f"beneficiary {target}", session)
 
 
 def _owns_order(conn, params, session) -> Optional[Decision]:
     order = _get(conn, "orders", params.get("order_id"))
     if order and order["customer_id"] != session:
-        return _mismatch(f"order {order['id']}", session)
+        return _mismatch(f"expense {order['id']}", session)
     return None
 
 
 def _order_exists(conn, params, session) -> Optional[Decision]:
     if not _get(conn, "orders", params.get("order_id")):
-        return Decision(BLOCKED, "INVALID_ORDER", f"Order {params.get('order_id')} does not exist.")
+        return Decision(BLOCKED, "INVALID_ORDER", f"Expense {params.get('order_id')} does not exist.")
     return None
 
 
@@ -310,7 +310,7 @@ def _recipient_is_customer(conn, params, session) -> Optional[Decision]:
     customer = _get(conn, "customers", session)
     if not customer or params.get("to_email") != customer["email"]:
         return Decision(BLOCKED, "EMAIL_RECIPIENT_NOT_ALLOWED",
-                        "Emails may only be sent to the customer who owns the case.")
+                        "Emails may only be sent to the beneficiary who owns the case.")
     return None
 
 

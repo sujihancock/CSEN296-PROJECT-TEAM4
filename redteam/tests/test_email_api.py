@@ -50,8 +50,8 @@ def test_mcp_email_tool_returns_delivery_metadata(conn):
         conn,
         "IntakeAgent",
         "cases.create",
-        {"customer_id": "CUST-001", "order_id": "ORD-101", "amount_requested": 45.0, "reason": "Damaged"},
-        "CUST-001",
+        {"customer_id": "BEN-001", "order_id": "EXP-101", "amount_requested": 45.0, "reason": "Urgent care visit"},
+        "BEN-001",
     )
     case_id = res["case_id"]
 
@@ -67,7 +67,7 @@ def test_mcp_email_tool_returns_delivery_metadata(conn):
             "body": "We have received your claim.",
             "email_type": "ACKNOWLEDGEMENT",
         },
-        "CUST-001",
+        "BEN-001",
     )
 
     assert email_res["sent"] is True
@@ -81,7 +81,7 @@ def test_api_send_email_endpoints():
         cust_headers = {"X-API-Key": "customer-001-key"}
         sup_headers = {"X-API-Key": "supervisor-key"}
 
-        # 1. Customer sending to own email succeeds
+        # 1. Beneficiary sending to own email succeeds
         payload = {
             "case_id": "CASE-999",
             "to_email": "alex.lopes@example.com",
@@ -96,7 +96,7 @@ def test_api_send_email_endpoints():
         assert "message_id" in data
         msg_id = data["message_id"]
 
-        # 2. Customer sending to unauthorized email is blocked (403)
+        # 2. Beneficiary sending to unauthorized email is blocked (403)
         spoofed = {
             "case_id": "CASE-999",
             "to_email": "attacker@evil.example",
@@ -107,7 +107,7 @@ def test_api_send_email_endpoints():
         res_blocked = client.post("/api/email/send", headers=cust_headers, json=spoofed)
         assert res_blocked.status_code == 403
 
-        # 3. Retrieve outbox as customer
+        # 3. Retrieve outbox as beneficiary
         res_outbox = client.get("/api/email/outbox", headers=cust_headers)
         assert res_outbox.status_code == 200
         outbox_items = res_outbox.json()

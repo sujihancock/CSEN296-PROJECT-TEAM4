@@ -6,7 +6,7 @@ from app.tools.base import ToolContext, tool
 _REPORT_STATUS = {"APPROVED": "ALLOWED", "ESCALATED": "ESCALATED"}
 
 
-@tool("reporting.record_decision", "Record a refund decision and its reasoning.",
+@tool("reporting.record_decision", "Record a reimbursement decision and its reasoning.",
       {"case_id": "string", "decision": "string", "reason": "string"})
 def record_decision(ctx: ToolContext, case_id: str, decision: str, reason: str) -> Dict[str, Any]:
     return log_event(

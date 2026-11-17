@@ -47,11 +47,11 @@ GEMINI_FALLBACK_TO_MOCK = os.getenv("GEMINI_FALLBACK_TO_MOCK", "true").lower() i
 # Mock authentication: demo API keys -> (role, user id).
 # The API derives identity from the key, never from the request body.
 API_KEYS = {
-    "customer-001-key": ("customer", "CUST-001"),
-    "customer-002-key": ("customer", "CUST-002"),
-    "customer-003-key": ("customer", "CUST-003"),
-    "customer-004-key": ("customer", "CUST-004"),
-    "customer-005-key": ("customer", "CUST-005"),
+    "customer-001-key": ("customer", "BEN-001"),
+    "customer-002-key": ("customer", "BEN-002"),
+    "customer-003-key": ("customer", "BEN-003"),
+    "customer-004-key": ("customer", "BEN-004"),
+    "customer-005-key": ("customer", "BEN-005"),
     "supervisor-key": ("supervisor", "SUP-001"),
     "admin-key": ("admin", "ADMIN-001"),
 }

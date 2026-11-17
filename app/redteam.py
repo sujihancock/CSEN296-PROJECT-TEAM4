@@ -66,13 +66,13 @@ def _apply_setup(conn: sqlite3.Connection, setup: Dict[str, Any]) -> None:
     for o in setup.get("extra_orders", []):
         conn.execute(
             "INSERT INTO orders (id, customer_id, product_name, category, amount, purchase_date) VALUES (?, ?, ?, ?, ?, ?)",
-            (o["id"], o["customer_id"], o["product_name"], o.get("category", "physical"), o["amount"],
+            (o["id"], o["customer_id"], o["product_name"], o.get("category", "covered"), o["amount"],
              now_ts(-o.get("days_ago", 1))),
         )
     if setup.get("prior_autonomous_payouts"):
         conn.execute(
             "INSERT INTO disbursements (case_id, customer_id, order_id, amount, autonomous, authorized_by, created_at) "
-            "VALUES ('CASE-PRIOR', 'CUST-003', 'ORD-301', ?, 1, 'setup', ?)",
+            "VALUES ('CASE-PRIOR', 'BEN-003', 'EXP-301', ?, 1, 'setup', ?)",
             (setup["prior_autonomous_payouts"], now_ts()),
         )
     conn.commit()

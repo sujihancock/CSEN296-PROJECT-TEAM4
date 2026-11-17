@@ -105,14 +105,14 @@ function suCaseCard(c) {
   const age = Date.now() - (parseTs(c.created_at)?.getTime() || Date.now());
   const injected = SU_INJECTION.test(c.reason || "");
   const commentId = `suComment-${c.id}`;
-  const comment = el("textarea", { id: commentId, rows: "2", placeholder: "Why? Goes in the audit log and the customer's email" });
+  const comment = el("textarea", { id: commentId, rows: "2", placeholder: "Why? Goes in the audit log and the beneficiary's email" });
   const approve = el("button", { type: "button", class: "btn btn-sm btn-primary" }, `Approve and pay ${money(c.amount_requested)}`);
   const deny = el("button", { type: "button", class: "btn btn-sm btn-danger" }, "Deny");
 
   const decide = (yes, btn) => {
     const msg = yes
       ? `Approve ${c.id} and pay ${money(c.amount_requested)} to ${name} now?\n\nThe money moves immediately and the decision is written to the audit log.`
-      : `Deny ${c.id} for ${name}?\n\nThe customer is emailed the decision.`;
+      : `Deny ${c.id} for ${name}?\n\nThe beneficiary is emailed the decision.`;
     if (!confirm(msg)) return;
     busy(btn, async () => {
       approve.disabled = deny.disabled = true;
@@ -139,7 +139,7 @@ function suCaseCard(c) {
       el("span", { class: "ov-feed-mark warn", "aria-hidden": "true" }),
       el("span", {}, c.decision_reason || "Held by guardrail")),
     el("figure", { class: "pg-case-quote" },
-      el("figcaption", {}, "Customer wrote", injected ? el("span", { class: "chip danger" }, "Looks like prompt injection") : null,
+      el("figcaption", {}, "Beneficiary wrote", injected ? el("span", { class: "chip danger" }, "Looks like prompt injection") : null,
         el("span", { class: `pg-case-age${age > SU_DAY ? " is-stale" : ""}` }, `filed ${ago(c.created_at)}`)),
       el("blockquote", {}, c.reason || "—")),
     el("label", { class: "pg-case-label", for: commentId }, "Decision note"),
@@ -157,7 +157,7 @@ function renderSuHistory(human, err) {
   const rows = human.sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at))).slice(0, 8);
   fill("suHistory", el("div", { class: "table-container" }, table([
     { label: "Claim", key: "id", mono: true },
-    { label: "Customer", render: r => custName(r.customer_id) },
+    { label: "Beneficiary", render: r => custName(r.customer_id) },
     { label: "Amount", render: r => money(r.amount_requested), num: true },
     { label: "Decision", render: r => badge(r.status) },
     { label: "Note", render: r => el("span", { class: "pg-clamp", title: r.decision_reason || "" }, r.decision_reason || "—") },
@@ -177,8 +177,8 @@ function renderSuKillSwitch(guard, logs) {
   btn.addEventListener("click", () => {
     const engage = !revoked;
     const msg = engage
-      ? "Engage the kill switch?\n\nEvery agent loses payout authority immediately. New refund requests fail closed until a supervisor restores authority."
-      : "Restore agent authority?\n\nAgents resume autonomous refunds within the $100 per-transaction and $500 weekly caps.";
+      ? "Engage the kill switch?\n\nEvery agent loses payout authority immediately. New reimbursement requests fail closed until a supervisor restores authority."
+      : "Restore agent authority?\n\nAgents resume autonomous reimbursements within the $100 per-transaction and $500 weekly caps.";
     if (!confirm(msg)) return;
     busy(btn, async () => {
       await api("POST", "/supervisor/kill-switch", { active: engage, reason: reason.value.trim() }, apiKey);
@@ -191,7 +191,7 @@ function renderSuKillSwitch(guard, logs) {
   fill("suKs",
     el("p", { class: "pg-ks-state" },
       el("span", { class: `ov-dot ${revoked ? "bad" : "ok"}`, "aria-hidden": "true" }),
-      revoked ? "Agents cannot pay anything. Every refund request fails closed." : "Agents can pay claims up to the caps on their own."),
+      revoked ? "Agents cannot pay anything. Every reimbursement request fails closed." : "Agents can pay claims up to the caps on their own."),
     el("div", { class: "pg-ks-form" }, reason, btn),
     history.length ? el("ol", { class: "ov-feed pg-ks-history", "aria-label": "Recent kill switch changes" }, history.map(e => el("li", { class: "ov-feed-item" },
       el("span", { class: `ov-feed-mark ${e.details?.active ? "bad" : "ok"}`, "aria-hidden": "true" }),
