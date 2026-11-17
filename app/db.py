@@ -145,10 +145,11 @@ def _seed(conn: sqlite3.Connection) -> None:
     conn.executemany(
         "INSERT OR IGNORE INTO customers (id, name, email, bank_account, bank_balance) VALUES (?, ?, ?, ?, ?)",
         [
-            ("CUST-001", "Alexandre Lopes", "alexandre.lopes@example.com", "BANK-ACCT-9871", 1250.0),
+            ("CUST-001", "Alex Lopes", "alex.lopes@example.com", "BANK-ACCT-9871", 1250.0),
             ("CUST-002", "Ariana Sun", "ariana.sun@example.com", "BANK-ACCT-4412", 840.0),
             ("CUST-003", "Suji Hancock", "suji.hancock@example.com", "BANK-ACCT-3310", 2100.0),
             ("CUST-004", "Raphael Kusuma", "raphael.kusuma@example.com", "BANK-ACCT-5520", 960.0),
+            ("CUST-005", "Jeromy Chang", "jeromy.chang@example.com", "BANK-ACCT-6634", 1480.0),
         ],
     )
     conn.executemany(
@@ -163,6 +164,7 @@ def _seed(conn: sqlite3.Connection) -> None:
             ("ORD-202", "CUST-002", "Ergonomic Desk Chair", "physical", 280.0, now_ts(-40)),
             ("ORD-301", "CUST-003", "Python AI Engineering eBook", "digital", 25.0, now_ts(-2)),
             ("ORD-401", "CUST-004", "USB-C Hub", "physical", 40.0, now_ts(-6)),
+            ("ORD-501", "CUST-005", "Bluetooth Mechanical Mouse", "physical", 55.0, now_ts(-8)),
         ],
     )
     conn.executemany(

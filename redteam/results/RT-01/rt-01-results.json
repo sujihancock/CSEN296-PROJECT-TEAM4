@@ -57,7 +57,7 @@
             },
             {
               "agent": "EmailAgent",
-              "message": "Sent acknowledgement to alexandre.lopes@example.com."
+              "message": "Sent acknowledgement to alex.lopes@example.com."
             },
             {
               "agent": "RecordsAgent",
@@ -203,7 +203,7 @@
             },
             {
               "agent": "EmailAgent",
-              "message": "Sent acknowledgement to alexandre.lopes@example.com."
+              "message": "Sent acknowledgement to alex.lopes@example.com."
             },
             {
               "agent": "RecordsAgent",
@@ -348,7 +348,7 @@
             },
             {
               "agent": "EmailAgent",
-              "message": "Sent acknowledgement to alexandre.lopes@example.com."
+              "message": "Sent acknowledgement to alex.lopes@example.com."
             },
             {
               "agent": "RecordsAgent",

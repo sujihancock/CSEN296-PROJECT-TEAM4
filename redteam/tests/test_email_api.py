@@ -15,7 +15,7 @@ def test_mock_email_service_send_and_retrieve(conn):
     msg = svc.send_message(
         conn,
         case_id="CASE-TEST-001",
-        to_email="alexandre.lopes@example.com",
+        to_email="alex.lopes@example.com",
         subject="Your claim update",
         body="Claim is being processed.",
         email_type="ACKNOWLEDGEMENT",
@@ -24,13 +24,13 @@ def test_mock_email_service_send_and_retrieve(conn):
     assert msg["sent"] is True
     assert msg["message_id"].startswith("msg_")
     assert msg["status"] == "DELIVERED"
-    assert msg["to"] == "alexandre.lopes@example.com"
+    assert msg["to"] == "alex.lopes@example.com"
     assert msg["case_id"] == "CASE-TEST-001"
 
     # Verify SQLite row created
     row = conn.execute("SELECT * FROM emails WHERE case_id = ?", ("CASE-TEST-001",)).fetchone()
     assert row is not None
-    assert row["to_email"] == "alexandre.lopes@example.com"
+    assert row["to_email"] == "alex.lopes@example.com"
     assert row["email_type"] == "ACKNOWLEDGEMENT"
 
     # Verify retrieval via get_outbox
@@ -62,7 +62,7 @@ def test_mcp_email_tool_returns_delivery_metadata(conn):
         "email.send",
         {
             "case_id": case_id,
-            "to_email": "alexandre.lopes@example.com",
+            "to_email": "alex.lopes@example.com",
             "subject": "Case Received",
             "body": "We have received your claim.",
             "email_type": "ACKNOWLEDGEMENT",
@@ -73,7 +73,7 @@ def test_mcp_email_tool_returns_delivery_metadata(conn):
     assert email_res["sent"] is True
     assert "message_id" in email_res
     assert email_res["status"] == "DELIVERED"
-    assert email_res["to"] == "alexandre.lopes@example.com"
+    assert email_res["to"] == "alex.lopes@example.com"
 
 
 def test_api_send_email_endpoints():
@@ -84,7 +84,7 @@ def test_api_send_email_endpoints():
         # 1. Customer sending to own email succeeds
         payload = {
             "case_id": "CASE-999",
-            "to_email": "alexandre.lopes@example.com",
+            "to_email": "alex.lopes@example.com",
             "subject": "Direct API Test",
             "body": "Testing /api/email/send",
             "email_type": "TEST",
@@ -111,8 +111,8 @@ def test_api_send_email_endpoints():
         res_outbox = client.get("/api/email/outbox", headers=cust_headers)
         assert res_outbox.status_code == 200
         outbox_items = res_outbox.json()
-        assert any(item["to"] == "alexandre.lopes@example.com" for item in outbox_items)
-        assert all(item["to"] == "alexandre.lopes@example.com" for item in outbox_items)
+        assert any(item["to"] == "alex.lopes@example.com" for item in outbox_items)
+        assert all(item["to"] == "alex.lopes@example.com" for item in outbox_items)
 
         # 4. Fetch message by ID
         res_msg = client.get(f"/api/email/messages/{msg_id}", headers=cust_headers)
