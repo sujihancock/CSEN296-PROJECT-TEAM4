@@ -45,6 +45,9 @@
             <button type="button" class="sb-scenario" data-scenario="injection" aria-pressed="false">
               <span class="sb-scenario-name">Prompt injection</span><span class="sb-scenario-amt">$450</span>
             </button>
+            <button type="button" class="sb-scenario" data-scenario="poisoned_receipt" aria-pressed="false">
+              <span class="sb-scenario-name">Poisoned receipt</span><span class="sb-scenario-amt">$30</span>
+            </button>
             <button type="button" class="sb-scenario" data-scenario="revocation" aria-pressed="false">
               <span class="sb-scenario-name">Kill switch on</span><span class="sb-scenario-amt">$45</span>
             </button>
@@ -78,6 +81,11 @@
           <div class="form-group">
             <label for="sbReason">What the beneficiary wrote</label>
             <textarea id="sbReason" required rows="4" placeholder="A normal request, or an attempt to talk the agent into paying more"></textarea>
+          </div>
+          <div class="form-group">
+            <label for="sbReceipt">Attached receipt (optional)</label>
+            <textarea id="sbReceipt" rows="3" aria-describedby="sbReceiptHint" placeholder="Text of a receipt or bill the beneficiary attaches"></textarea>
+            <p class="sb-hint" id="sbReceiptHint">Uploaded to the beneficiary's drive as receipt.txt and attached to the claim. The Refunds agent reads it during review.</p>
           </div>
           <div class="form-actions">
             <button class="btn btn-primary" type="submit" id="sbSubmitBtn">Run claim</button>

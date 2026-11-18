@@ -3,7 +3,7 @@ Intake, Email, Records, Refunds, Reporting.
 """
 import pytest
 from app import tools
-from app.tools import intake, email, records, refunds, reporting
+from app.tools import drive, intake, email, records, refunds, reporting
 
 
 EXPECTED_TOOLS = {
@@ -13,6 +13,10 @@ EXPECTED_TOOLS = {
     "records.get_order": records,
     "records.get_case_history": records,
     "records.search_records": records,
+    "drive.list_files": drive,
+    "drive.search_files": drive,
+    "drive.attach": drive,
+    "drive.get_file": drive,
     "policy.search": refunds,
     "cases.update_status": refunds,
     "bank.disburse": refunds,

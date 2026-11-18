@@ -28,10 +28,10 @@ from app.db import parse_ts
 logger = logging.getLogger(__name__)
 
 COLLECTION_NAME = "beneficiary_records"
-KINDS = ("profile", "expense", "case")
+KINDS = ("profile", "expense", "case", "file")
 # Fields a hit may carry. Everything else stays in the index text only.
 RETURNED_FIELDS = ("kind", "id", "customer_id", "order_id", "product_name", "category", "amount",
-                   "status", "date", "decided_by")
+                   "status", "date", "decided_by", "case_id", "name", "content_type")
 
 
 def _collection(conn: sqlite3.Connection):
@@ -73,6 +73,14 @@ def _case_doc(row: sqlite3.Row) -> Dict[str, Any]:
     return {"id": f"case:{row['id']}", "text": text, "meta": meta}
 
 
+def _file_doc(row: sqlite3.Row) -> Dict[str, Any]:
+    body = (row["text"] or "")[:2000] or f"{row['content_type']} file, contents not indexed."
+    text = f"Case file {row['id']} '{row['name']}' for {row['customer_id']}: {body}"
+    meta = {"kind": "file", "id": row["id"], "customer_id": row["customer_id"], "case_id": row["case_id"] or "",
+            "name": row["name"], "content_type": row["content_type"], "date": row["uploaded_at"]}
+    return {"id": f"file:{row['id']}", "text": text, "meta": meta}
+
+
 CASE_SQL = ("SELECT k.*, o.product_name, o.category FROM cases k JOIN orders o ON o.id = k.order_id")
 
 
@@ -101,6 +109,11 @@ def index_case(conn: sqlite3.Connection, case_id: str) -> int:
     return _upsert(conn, [_case_doc(row)] if row else [])
 
 
+def index_file(conn: sqlite3.Connection, file_id: str) -> int:
+    row = conn.execute("SELECT * FROM files WHERE id = ?", (file_id,)).fetchone()
+    return _upsert(conn, [_file_doc(row)] if row else [])
+
+
 def index_case_and_profile(conn: sqlite3.Connection, case_id: str) -> None:
     """Refresh a case and its owner's profile (the balance changes on payout)."""
     index_case(conn, case_id)
@@ -114,6 +127,7 @@ def sync_all(conn: sqlite3.Connection) -> int:
     docs = [_profile_doc(r) for r in conn.execute("SELECT * FROM customers")]
     docs += [_expense_doc(r) for r in conn.execute("SELECT * FROM orders")]
     docs += [_case_doc(r) for r in conn.execute(CASE_SQL)]
+    docs += [_file_doc(r) for r in conn.execute("SELECT * FROM files")]
     return _upsert(conn, docs)
 
 

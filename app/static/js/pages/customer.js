@@ -25,11 +25,12 @@ async function loadCustomer() {
   roleNote("cuRoleNote", ["customer"], "This page is for beneficiaries, so the API rejects its requests with 403. Submitting a claim shows the same rejection.", "customer-001-key");
 
   try {
-    const [orders, cases, emails, customers] = await Promise.all([
+    const [orders, cases, emails, customers, files] = await Promise.all([
       settle(api("GET", "/me/orders", null, key)),
       settle(api("GET", "/me/cases", null, key)),
       settle(api("GET", "/me/emails", null, key)),
       settle(api("GET", "/demo/customers", null, key)),
+      settle(api("GET", "/me/drive/files", null, key)),
     ]);
     cuOrders = orders.ok ? orders.v : [];
     cuCases = cases.ok ? cases.v : [];
@@ -40,6 +41,7 @@ async function loadCustomer() {
     renderCuCases(cases);
     renderCuInbox(emails);
     renderCuOrders(orders);
+    renderCuFiles(files);
     $("cuUpdated").textContent = `Updated ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
   } finally {
     cuLoading = false;
@@ -212,6 +214,66 @@ function renderCuOrders(orders) {
   }));
 }
 
+// ---------------------------------------------------------------- Drive (case files)
+const fmtSize = (n) => n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(0)} KB` : `${(n / 1048576).toFixed(1)} MB`;
+
+function renderCuFiles(files) {
+  if (!files.ok) {
+    $("cuFilesNote").textContent = "—";
+    fill("myFiles", el("li", { class: "ov-error" }, files.e.message));
+    return;
+  }
+  $("cuFilesNote").textContent = `${files.v.length} file${files.v.length === 1 ? "" : "s"}`;
+  if (!files.v.length) {
+    fill("myFiles", el("li", { class: "ov-empty" }, el("p", {}, "Files you attach to a claim are kept here.")));
+    return;
+  }
+  fill("myFiles", files.v.map(f => {
+    const dl = el("button", { type: "button", class: "btn btn-sm btn-ghost", "aria-label": `Download ${f.name}` }, "Download");
+    dl.addEventListener("click", () => busy(dl, () => downloadFile(f)));
+    return el("li", { class: "pg-list-item" },
+      el("div", { class: "pg-list-main" },
+        el("span", { class: "pg-list-title", title: f.name }, f.name),
+        el("span", { class: "pg-list-meta" },
+          el("span", { class: "font-mono" }, f.id), " · ", fmtSize(f.size), " · ",
+          f.case_id ? el("span", { class: "font-mono" }, f.case_id) : "not attached")),
+      el("div", { class: "pg-list-side" }, dl));
+  }));
+}
+
+// The download needs the API key header, so fetch it and hand the browser a blob.
+async function downloadFile(f) {
+  const res = await fetch(`/me/drive/files/${encodeURIComponent(f.id)}/content`, { headers: { "X-API-Key": apiKey } });
+  if (!res.ok) throw new Error(`Download failed (${res.status})`);
+  const url = URL.createObjectURL(await res.blob());
+  const a = el("a", { href: url, download: f.name });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",", 2)[1] || "");
+    reader.onerror = () => reject(new Error(`Could not read ${file.name}`));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadPicked() {
+  const picked = [...$("cuFiles").files];
+  if (picked.length > 5) throw new Error("Attach up to 5 files.");
+  const ids = [];
+  for (const f of picked) {
+    if (f.size > 1000000) throw new Error(`${f.name} is over 1 MB.`);
+    const up = await api("POST", "/me/drive/files", { name: f.name, content_base64: await fileToBase64(f) }, apiKey);
+    ids.push(up.id);
+  }
+  return ids;
+}
+
 function renderCuResult(r) {
   const tone = { APPROVED: "ok", ESCALATED: "warn", DENIED: "bad", BLOCKED: "bad", REVOKED: "bad" }[r.status] || "info";
   const headline = {
@@ -225,6 +287,8 @@ function renderCuResult(r) {
     el("div", { class: "pg-result-head" }, badge(r.status), r.case_id ? el("span", { class: "font-mono" }, r.case_id) : null),
     el("p", { class: "pg-result-title" }, headline),
     r.reason ? el("p", { class: "pg-result-body" }, r.reason) : null,
+    (r.case_files || []).length ? el("p", { class: "pg-result-body" }, "Attached: ",
+      r.case_files.map(f => f.withheld ? `${f.name} (held for a person to read)` : f.name).join(", ")) : null,
     r.new_bank_balance != null ? el("p", { class: "pg-result-body" }, "New balance ", el("b", { class: "font-mono" }, money(r.new_bank_balance))) : null));
 }
 
@@ -236,12 +300,14 @@ $("cuRefresh").addEventListener("click", (ev) => busy(ev.currentTarget, loadCust
 $("refundForm").addEventListener("submit", (ev) => {
   ev.preventDefault();
   busy($("cuSubmit"), async () => {
+    const attachments = await uploadPicked();
     const out = await api("POST", "/tasks", {
       task: "refund_request",
-      data: { order_id: $("orderSel").value, amount: parseFloat($("amount").value), reason: $("reason").value },
+      data: { order_id: $("orderSel").value, amount: parseFloat($("amount").value), reason: $("reason").value, attachments },
     }, apiKey);
     renderCuResult(out.result);
     $("reason").value = "";
+    $("cuFiles").value = "";
     await Promise.all([loadCustomer(), loadHealth()]);
   });
 });

@@ -59,6 +59,11 @@
               <label for="reason">Describe the care you received</label>
               <textarea id="reason" required rows="3" placeholder="For example: urgent care visit for a sprained ankle, itemized receipt attached"></textarea>
             </div>
+            <div class="form-group">
+              <label for="cuFiles">Receipts or bills (optional)</label>
+              <input id="cuFiles" type="file" multiple accept=".txt,.md,.csv,.json,.pdf,.png,.jpg,.jpeg" aria-describedby="cuFilesHint">
+              <p class="sb-hint" id="cuFilesHint">Up to 5 files, 1 MB each: .txt, .pdf, .png or .jpg. They are saved to your drive and attached to this claim.</p>
+            </div>
             <ul id="cuHints" class="pg-hints" aria-live="polite"></ul>
             <div class="form-actions">
               <button class="btn btn-primary" type="submit" id="cuSubmit">Submit claim</button>
@@ -94,6 +99,14 @@
             <span class="ov-panel-note" id="cuOrdersNote">—</span>
           </header>
           <ul id="myOrders" class="pg-list"><li><span class="ov-skel ov-skel--block"></span></li></ul>
+        </section>
+
+        <section class="ov-panel" aria-labelledby="cuFilesTitle">
+          <header class="ov-panel-head">
+            <h2 id="cuFilesTitle">My files</h2>
+            <span class="ov-panel-note" id="cuFilesNote">—</span>
+          </header>
+          <ul id="myFiles" class="pg-list"><li><span class="ov-skel ov-skel--block"></span></li></ul>
         </section>
       </div>
     </div>

@@ -63,6 +63,9 @@ class Specialist:
 class IntakeAgent(Specialist):
     name = "IntakeAgent"
 
+    def attach(self, file_id: str, case_id: str) -> Dict[str, Any]:
+        return self.call("drive.attach", file_id=file_id, case_id=case_id)
+
     def open_case(self, order_id: str, amount: float, reason: str) -> Dict[str, Any]:
         return self.call("cases.create", customer_id=self.session, order_id=order_id,
                          amount_requested=amount, reason=reason)
@@ -114,23 +117,33 @@ class RefundsAgent(Specialist):
         self.events = events or EventSink()
 
     def evaluate(self, case: Dict[str, Any], order: Dict[str, Any], reason: str,
-                 history: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
+                 history: Optional[List[Dict[str, Any]]] = None,
+                 file_ids: Optional[List[str]] = None) -> Dict[str, Any]:
         case_id = case["case_id"]
         self.call("cases.update_status", case_id=case_id, status="UNDER_REVIEW", decision_reason="")
         ev = self.events
-        ev.emit("rag", "running", self.name, "Searching benefits program policies (ChromaDB).")
+        ev.emit("rag", "running", self.name, "Searching benefits program policies (ChromaDB)"
+                + (" and reading the attached case files." if file_ids else "."))
         policies = self.call("policy.search", query=f"{reason} {order['product_name']} {order['category']}")
-        ev.emit("rag", "ok" if policies else "warn", self.name,
+        # Drive: read each attached file. drive.get_file withholds instruction-like text.
+        files = [self.call("drive.get_file", file_id=f) for f in (file_ids or [])]
+        documents = [{"name": f["name"], "text": f["text"]} for f in files if f.get("text")]
+        withheld = [f["id"] for f in files if f.get("withheld")]
+        file_note = (f" Read {len(files)} case file(s)" + (f", {len(withheld)} withheld by the content screen" if withheld else "")
+                     + ".") if files else ""
+        ev.emit("rag", "warn" if withheld or not policies else "ok", self.name,
                 f"Retrieved {len(policies)} polic{'y' if len(policies) == 1 else 'ies'}: "
-                f"{', '.join(p['id'] for p in policies) or 'none'}.",
-                policies=[{"id": p.get("id"), "title": p.get("title"), "score": p.get("score")} for p in policies])
+                f"{', '.join(p['id'] for p in policies) or 'none'}.{file_note}",
+                policies=[{"id": p.get("id"), "title": p.get("title"), "score": p.get("score")} for p in policies],
+                files=[{k: f.get(k) for k in ("id", "name", "withheld", "flags", "note")} for f in files])
         days = (datetime.now(timezone.utc) - parse_ts(order["purchase_date"])).days
         model = model_label(self.llm)
         ev.emit("llm", "running", self.name, f"Asking {model} to decide entitlement and the eligible amount.",
                 model=model)
         t0 = time.perf_counter()
         proposal = self.llm.propose_refund_decision(
-            reason, order, case["amount_requested"], policies, days, config.RETURN_WINDOW_DAYS, history)
+            reason, order, case["amount_requested"], policies, days, config.RETURN_WINDOW_DAYS, history,
+            documents)
         secs = round(time.perf_counter() - t0, 2)
         approve = proposal["action"] == "APPROVE"
         ev.emit("llm", "bad" if proposal.get("followed_embedded_instructions") else "ok" if approve else "warn",
@@ -142,6 +155,8 @@ class RefundsAgent(Specialist):
             "refunded_amount": 0.0,
             "new_bank_balance": None,
             "retrieved_policies": policies,
+            "case_files": [{k: f.get(k) for k in ("id", "name", "content_type", "withheld", "flags", "note")}
+                           for f in files],
         }
 
         if proposal["action"] != "APPROVE":
@@ -202,7 +217,7 @@ class Orchestrator:
         self.plan(task, data)  # validates the task type
         return self.process_refund_request(
             conn, session_customer_id, data["order_id"], float(data["amount"]), str(data.get("reason", "")),
-            on_event=on_event)
+            on_event=on_event, attachments=data.get("attachments") or [])
 
     # ------------------------------------------------------------- LLM tools
 
@@ -257,8 +272,12 @@ class Orchestrator:
 
     def process_refund_request(self, conn: sqlite3.Connection, customer_id: str, order_id: str,
                                amount: float, reason: str,
-                               on_event: Optional[EventListener] = None) -> Dict[str, Any]:
-        """Run one claim. `on_event`, if given, receives live step events (see EventSink)."""
+                               on_event: Optional[EventListener] = None,
+                               attachments: Optional[List[str]] = None) -> Dict[str, Any]:
+        """Run one claim. `on_event`, if given, receives live step events (see EventSink).
+
+        `attachments` are drive file ids the beneficiary uploaded for this claim.
+        """
         trace: List[Dict[str, str]] = []
         ev = EventSink(on_event)
         later_steps = ("plan", "intake", "records", "rag", "llm", "pay", "summary")
@@ -315,6 +334,11 @@ class Orchestrator:
             case["amount_requested"] = amount
             ctx["case"] = case
             step(agent.name, f"Created case {case['case_id']} (assigned to {case.get('assigned_to')}).")
+            ctx["file_ids"] = []
+            for fid in dict.fromkeys(attachments or []):  # de-duplicated, order kept
+                attached = agent.attach(fid, case["case_id"])
+                ctx["file_ids"].append(attached["id"])
+                step(agent.name, f"Attached {attached['id']} ({attached['name']}) to {case['case_id']}.")
 
         def send_ack(agent: EmailAgent) -> None:
             case_id = ctx["case"]["case_id"]
@@ -342,7 +366,7 @@ class Orchestrator:
             ev_done.add("records")
 
         def evaluate(agent: RefundsAgent) -> None:
-            outcome = agent.evaluate(ctx["case"], ctx["order"], reason, ctx.get("related_claims"))
+            outcome = agent.evaluate(ctx["case"], ctx["order"], reason, ctx.get("related_claims"), ctx.get("file_ids"))
             outcome["related_claims"] = ctx.get("related_claims", [])
             ctx["outcome"] = outcome
             step(agent.name, f"LLM proposed {outcome['llm_proposal']['action']} "

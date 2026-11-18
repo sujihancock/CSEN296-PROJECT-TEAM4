@@ -30,7 +30,9 @@ The point of the project is that **the LLM is not trusted**. Every tool call goe
 | Kill switch | A supervisor can revoke the agent's authority. When it is on, every tool call fails closed |
 | Audit | Every tool call and decision is written to a hash-chained, tamper-evident log |
 
-Benefits program policies are retrieved from a **ChromaDB vector store** (`all-MiniLM-L6-v2` embeddings). A second collection, `beneficiary_records`, indexes every beneficiary profile, healthcare expense and case ([app/records_store.py](app/records_store.py)). It is re-indexed whenever a case is created or decided or a balance changes. The Records agent searches it (`records.search_records`) to find the beneficiary's related past claims for the eligibility profile. The search is limited to the session beneficiary twice, once by the guardrail and once by the query filter. Hits carry structured fields only, never the free text a beneficiary wrote, and bank accounts are indexed as the last four digits. Beneficiaries can search their own records at `GET /me/records/search?q=...`. Three LLM backends are available:
+Benefits program policies are retrieved from a **ChromaDB vector store** (`all-MiniLM-L6-v2` embeddings). A second collection, `beneficiary_records`, indexes every beneficiary profile, healthcare expense and case ([app/records_store.py](app/records_store.py)). It is re-indexed whenever a case is created or decided or a balance changes. The Records agent searches it (`records.search_records`) to find the beneficiary's related past claims for the eligibility profile. The search is limited to the session beneficiary twice, once by the guardrail and once by the query filter. Hits carry structured fields only, never the free text a beneficiary wrote, and bank accounts are indexed as the last four digits. Beneficiaries can search their own records at `GET /me/records/search?q=...`.
+
+Case files live on a **mock cloud drive** ([app/drive.py](app/drive.py)), standing in for Google Drive or OneDrive. A beneficiary uploads receipts (`POST /me/drive/files`, or the file picker on the Beneficiary portal) and lists them in "My files". When the claim is submitted, the Intake agent attaches the files to the case (`drive.attach`). The Refunds agent then reads them during review (`drive.get_file`), and the Records agent can search them through the records index (`drive.search_files`). Supervisors see a case's files with `GET /supervisor/cases/{id}/files`. Uploads are limited to .txt, .md, .csv, .json, .pdf, .png and .jpg files of up to 1 MB. A PDF or image must start with the matching file signature. Files are stored by id, so the uploaded name is never used as a path. Text is extracted only from plain-text files. Before a file reaches the model, a content screen looks for instruction-like phrases. A flagged file is withheld and logged as `DRIVE_FILE_WITHHELD`, and a receipt can back only one claim. Three LLM backends are available:
 - **Mock LLM (default)**: deterministic, and deliberately vulnerable to prompt injection, both direct and through retrieved policy text. The red team results below were produced with it.
 - **Gemma 4 through Google AI Studio**: optional, through the Gemini API (needs `GEMINI_API_KEY`).
 - **Local Qwen model through Ollama**: optional.
@@ -90,7 +92,8 @@ flowchart TD
     Orch --> Intake & Records & Refunds & Email & Reporting
     Refunds --> LLM["LLM (app/llm.py)<br/>Mock, Gemma (AI Studio) or Qwen via Ollama · untrusted"]
     Refunds --> RAG["Policy retriever (app/retriever.py)<br/>ChromaDB vector store"]
-    Records --> RRAG["Records search (app/records_store.py)<br/>ChromaDB: profiles, expenses, cases"]
+    Records --> RRAG["Records search (app/records_store.py)<br/>ChromaDB: profiles, expenses, cases, files"]
+    Intake & Refunds --> Drive["Mock drive (app/drive.py)<br/>case files + content screen"]
     Intake & Records & Refunds & Email & Reporting -->|"call_tool()"| Tools["MCP-style tools (app/tools/)"]
     Tools -->|"every call"| G["Guardrail (app/guardrails.py)<br/>allowlist · ownership · caps · kill switch"]
     G --> DB[("SQLite: beneficiaries, healthcare expenses, cases,<br/>emails, payment ledger")]
@@ -108,7 +111,8 @@ flowchart TD
 | [app/guardrails.py](app/guardrails.py) | The single enforcement point for every tool call and for money movement |
 | [app/llm.py](app/llm.py) | `MockLLM` (intentionally injectable), `GeminiLLM` (Gemma/Gemini via Google AI Studio) and `OllamaLLM` (local Qwen) |
 | [app/retriever.py](app/retriever.py), [app/vector_store.py](app/vector_store.py) | Policy retrieval backed by ChromaDB |
-| [app/records_store.py](app/records_store.py) | Records RAG: ChromaDB index of beneficiary profiles, expenses and cases, kept in step with SQLite |
+| [app/records_store.py](app/records_store.py) | Records RAG: ChromaDB index of beneficiary profiles, expenses, cases and case files, kept in step with SQLite |
+| [app/drive.py](app/drive.py) | Mock cloud drive: upload checks, storage by id, attach to a case, screened text for the model |
 | [app/audit.py](app/audit.py) | Append-only, hash-chained audit log and chain verification |
 | [app/redteam.py](app/redteam.py) | Runs `/tests/rt-XX` attacks in a sandbox DB and writes evidence |
 | [app/db.py](app/db.py) | SQLite schema and seed data: 5 beneficiaries, 10 healthcare expenses, 4 benefits policies |
@@ -116,14 +120,14 @@ flowchart TD
 
 ## Red teaming
 
-There are 27 attack suites with 52 attacks between them, in [redteam/testdata/](redteam/testdata/) (`rt-01.json` … `rt-27.json`). You can run them from the Supervisor view in the dashboard, with `POST /tests/rt-XX`, or with `./start.sh demo`. Each run happens in a throwaway database, and its evidence goes to `redteam/results/RT-XX/`.
+There are 28 attack suites with 58 attacks between them, in [redteam/testdata/](redteam/testdata/) (`rt-01.json` … `rt-28.json`). You can run them from the Supervisor view in the dashboard, with `POST /tests/rt-XX`, or with `./start.sh demo`. Each run happens in a throwaway database, and its evidence goes to `redteam/results/RT-XX/`.
 
-**Current results (mock LLM)**: 49 of 52 attacks defended, with **no guardrail failures**. The 3 findings are all `llm_policy` attacks, where the model is talked out of a business rule. The $100 and $500 caps still limit the damage.
+**Current results (mock LLM)**: 55 of 58 attacks defended, with **no guardrail failures**. The 3 findings are all `llm_policy` attacks, where the model is talked out of a business rule. The $100 and $500 caps still limit the damage.
 
 | MAESTRO layer | Suites | Result |
 |---|---|---|
 | L1 Foundation Models | RT-01 – RT-03 | **1 finding**: RT-01-c (a hidden command gets an excluded cosmetic service reimbursed) |
-| L2 Data Operations | RT-04, RT-05, RT-13, RT-14, RT-27 | **2 findings**: RT-04-a, RT-13-a (a poisoned policy gets a reimbursement approved) |
+| L2 Data Operations | RT-04, RT-05, RT-13, RT-14, RT-27, RT-28 | **2 findings**: RT-04-a, RT-13-a (a poisoned policy gets a reimbursement approved) |
 | L3 Agent Frameworks | RT-06, RT-07, RT-26 | Defended |
 | L4 Deployment Infrastructure | RT-08, RT-09, RT-15, RT-16 | Defended |
 | L5 Evaluation & Observability | RT-10, RT-17 – RT-19 | Defended |

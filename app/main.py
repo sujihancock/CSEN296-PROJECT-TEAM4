@@ -5,6 +5,8 @@ Run: uvicorn app.main:app --reload --port 8000
 Mock authentication: send `X-API-Key` (see app/config.py). Identity always
 comes from the key, never from the request body.
 """
+import base64
+import binascii
 import json
 import logging
 import queue
@@ -17,11 +19,11 @@ from typing import Any, Dict, Iterator, Optional
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from app import audit, config, guardrails, redteam, tools
+from app import audit, config, drive, guardrails, redteam, tools
 from app.agent import Orchestrator
 from app.db import get_connection, init_db, now_ts
 from app.guardrails import GuardrailViolation
@@ -145,6 +147,9 @@ def _validate_task(req: "TaskRequest", who: Identity, conn) -> float:
         amount = float(req.data["amount"])
     except (TypeError, ValueError):
         raise HTTPException(422, "amount must be a number")
+    att = req.data.get("attachments", [])
+    if not isinstance(att, list) or len(att) > 5 or not all(isinstance(a, str) for a in att):
+        raise HTTPException(422, "attachments must be a list of up to 5 file ids")
     return amount
 
 
@@ -153,7 +158,8 @@ def submit_task(req: TaskRequest, who: Identity = Depends(require("customer")), 
     """Submit a task to the agent. Supported: refund_request {order_id, amount, reason}."""
     amount = _validate_task(req, who, conn)
     result = agent.process_refund_request(conn, who.user_id, str(req.data["order_id"]), amount,
-                                          str(req.data.get("reason", "")))
+                                          str(req.data.get("reason", "")),
+                                          attachments=req.data.get("attachments") or [])
     return {"status": "ok", "result": result}
 
 
@@ -170,6 +176,7 @@ def submit_task_stream(req: TaskRequest, who: Identity = Depends(require("custom
     """
     amount = _validate_task(req, who, conn)  # 403/422 before any streaming starts
     order_id, reason, user_id = str(req.data["order_id"]), str(req.data.get("reason", "")), who.user_id
+    attachments = req.data.get("attachments") or []
     events: "queue.Queue[Optional[Dict[str, Any]]]" = queue.Queue()
     started = time.perf_counter()
 
@@ -177,7 +184,8 @@ def submit_task_stream(req: TaskRequest, who: Identity = Depends(require("custom
         # The request's connection closes before a streamed body is sent, so the claim gets its own.
         own = get_connection()
         try:
-            result = agent.process_refund_request(own, user_id, order_id, amount, reason, on_event=events.put)
+            result = agent.process_refund_request(own, user_id, order_id, amount, reason, on_event=events.put,
+                                                  attachments=attachments)
             events.put({"type": "result", "result": result})
         except Exception as e:  # noqa: BLE001 - report to the client instead of dropping the stream
             logging.getLogger(__name__).exception("Streamed claim failed")
@@ -473,6 +481,53 @@ class DecisionRequest(BaseModel):
 class KillSwitchRequest(BaseModel):
     active: bool
     reason: str = ""
+
+
+class UploadRequest(BaseModel):
+    name: str = Field(..., max_length=255)
+    content_base64: str = Field(..., max_length=1_400_000)  # ~1 MB once decoded
+
+
+def _drive_error(e: "drive.DriveError") -> HTTPException:
+    return HTTPException(413 if e.code == "FILE_TOO_LARGE" else 422, {"code": e.code, "reason": str(e)})
+
+
+@app.post("/me/drive/files")
+def upload_file(req: UploadRequest, who: Identity = Depends(require("customer")), conn=Depends(db)):
+    """Upload a case file (receipt, bill) to the caller's drive. Attach it to a claim with data.attachments."""
+    try:
+        data = base64.b64decode(req.content_base64, validate=True)
+    except (binascii.Error, ValueError):
+        raise HTTPException(422, "content_base64 is not valid base64")
+    try:
+        return drive.store_file(conn, who.user_id, req.name, data, who.user_id)
+    except drive.DriveError as e:
+        audit.log_event(conn, who.user_id, "DRIVE_UPLOAD_REJECTED", "BLOCKED",
+                        {"code": e.code, "name": drive.display_name(req.name), "size": len(data)})
+        raise _drive_error(e)
+
+
+@app.get("/me/drive/files")
+def my_files(who: Identity = Depends(require("customer")), conn=Depends(db)):
+    return drive.list_files(conn, who.user_id)
+
+
+@app.get("/me/drive/files/{file_id}/content")
+def my_file_content(file_id: str, who: Identity = Depends(require("customer")), conn=Depends(db)):
+    """Download one of the caller's files. Always served as an attachment, never rendered inline."""
+    row = drive.get_row(conn, file_id)
+    if not row or row["customer_id"] != who.user_id:
+        raise HTTPException(404, "File not found")
+    return Response(drive.read_bytes(conn, row), media_type=row["content_type"],
+                    headers={"Content-Disposition": f'attachment; filename="{row["id"]}"',
+                             "X-Content-Type-Options": "nosniff"})
+
+
+@app.get("/supervisor/cases/{case_id}/files")
+def case_files(case_id: str, _who=Depends(require("supervisor")), conn=Depends(db)):
+    """Files attached to a case, with their text and content-screen result, for human review."""
+    rows = conn.execute("SELECT * FROM files WHERE case_id = ? ORDER BY uploaded_at", (case_id,)).fetchall()
+    return [drive.public(r) | {"text": r["text"], "screen_flags": drive.screen_text(r["text"] or "")} for r in rows]
 
 
 @app.get("/supervisor/cases")

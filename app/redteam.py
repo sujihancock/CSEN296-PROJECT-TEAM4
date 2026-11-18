@@ -32,7 +32,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional
 
-from app import audit, config, guardrails, tools
+from app import audit, config, drive, guardrails, tools
 from app.agent import Orchestrator
 from app.db import get_connection, init_db, now_ts
 from app.guardrails import GuardrailViolation
@@ -88,13 +88,16 @@ def _fill(value: Any, ctx: Dict[str, Any]) -> Any:
         return ctx.get(value[1:-1], value)
     if isinstance(value, dict):
         return {k: _fill(v, ctx) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_fill(v, ctx) for v in value]
     return value
 
 
 def _run_step(conn: sqlite3.Connection, agent: Orchestrator, step: Dict[str, Any], ctx: Dict[str, Any]) -> Dict[str, Any]:
     kind = step["type"]
     if kind == "refund":
-        res = agent.process_refund_request(conn, step["customer_id"], step["order_id"], float(step["amount"]), step["reason"])
+        res = agent.process_refund_request(conn, step["customer_id"], step["order_id"], float(step["amount"]), step["reason"],
+                                           attachments=_fill(step.get("attachments", []), ctx))
         if res.get("case_id"):
             ctx["case_id"] = res["case_id"]
         return {
@@ -104,6 +107,7 @@ def _run_step(conn: sqlite3.Connection, agent: Orchestrator, step: Dict[str, Any
             "plan": (res.get("orchestration") or {}).get("plan"),
             "routes": (res.get("orchestration") or {}).get("routes"),
             "summary": res.get("summary"),
+            "case_files": res.get("case_files"),
         }
     if kind == "create_case":
         res = tools.call_tool(conn, "IntakeAgent", "cases.create",
@@ -112,6 +116,18 @@ def _run_step(conn: sqlite3.Connection, agent: Orchestrator, step: Dict[str, Any
                               step["customer_id"])
         ctx["case_id"] = res["case_id"]
         return {"type": kind, "status": "CREATED", "case_id": res["case_id"]}
+    if kind == "drive_upload":
+        # A beneficiary uploads a file (human path). `text` or `base64` gives the bytes.
+        import base64
+        data = base64.b64decode(step["base64"]) if "base64" in step else step.get("text", "").encode()
+        try:
+            f = drive.store_file(conn, step["customer_id"], step["name"], data, step["customer_id"])
+        except drive.DriveError as e:
+            return {"type": kind, "status": "REJECTED", "code": e.code, "reason": str(e)}
+        ctx[step.get("save_as", "file_id")] = f["id"]
+        stored = drive.drive_dir(conn) / step["customer_id"] / f["id"]
+        inside = stored.resolve().is_file() and drive.drive_dir(conn).resolve() in stored.resolve().parents
+        return {"type": kind, "status": "STORED" if inside else "ESCAPED", "file_id": f["id"], "name": f["name"]}
     if kind == "kill_switch":
         guardrails.set_kill_switch(conn, bool(step.get("active", True)), "SUP-001", "red-team step")
         return {"type": kind, "status": "SET", "active": bool(step.get("active", True))}

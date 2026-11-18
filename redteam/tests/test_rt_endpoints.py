@@ -28,7 +28,7 @@ def test_all_guardrail_attacks_defended(rt):
 
 
 def test_all_attack_files_present():
-    assert redteam.available_tests() == [f"rt-{i:02d}" for i in range(1, 28)]
+    assert redteam.available_tests() == [f"rt-{i:02d}" for i in range(1, 29)]
 
 
 def test_endpoint_writes_evidence_and_logs_run(tmp_path):

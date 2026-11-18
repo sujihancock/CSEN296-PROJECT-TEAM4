@@ -6,6 +6,7 @@ Tools are organized into specialist modules:
 - refunds: Policy RAG retrieval, status updates, bank disbursement (`policy.search`, `cases.update_status`, `bank.disburse`)
 - email: Customer notification inbox (`email.send`)
 - reporting: Tamper-evident audit trail logging (`reporting.record_decision`)
+- drive: Case files on the mock cloud drive (`drive.list_files`, `drive.search_files`, `drive.attach`, `drive.get_file`)
 
 Agents never call handlers directly: `call_tool` routes every call through the guardrail layer first.
 """
@@ -13,7 +14,7 @@ from app.tools.base import Tool, ToolContext, TOOLS, tool, list_tools, call_tool
 from app.tools.email import insert_email
 
 # Import modules to register their tools in the global TOOLS dict
-from app.tools import intake, email, records, refunds, reporting
+from app.tools import intake, email, records, refunds, reporting, drive
 
 __all__ = [
     "Tool",
@@ -28,4 +29,5 @@ __all__ = [
     "records",
     "refunds",
     "reporting",
+    "drive",
 ]

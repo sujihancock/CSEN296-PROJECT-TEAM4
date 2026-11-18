@@ -10,7 +10,7 @@ TS_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 # Drop order respects foreign keys.
 TABLES = [
-    "audit_logs", "disbursements", "beneficiary_messages", "emails", "cases",
+    "files", "audit_logs", "disbursements", "beneficiary_messages", "emails", "cases",
     "orders", "customers", "policies", "system_settings",
 ]
 
@@ -107,6 +107,20 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     hash TEXT NOT NULL
 );
 
+-- Mock cloud drive (app/drive.py). Bytes live on disk under drive/<customer_id>/<id>.
+CREATE TABLE IF NOT EXISTS files (
+    id TEXT PRIMARY KEY,
+    customer_id TEXT NOT NULL REFERENCES customers(id),
+    case_id TEXT,                        -- set when Intake attaches the file to a claim
+    name TEXT NOT NULL,                  -- display only; never used in a path
+    content_type TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    sha256 TEXT NOT NULL,
+    text TEXT,                           -- extracted text for plain-text types, else NULL
+    uploaded_by TEXT NOT NULL,
+    uploaded_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS system_settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL,
@@ -142,8 +156,9 @@ def init_db(seed: bool = True, drop_existing: bool = False, path: Optional[Path]
             try:
                 from app.retriever import get_store_for_conn
                 get_store_for_conn(conn).reset()
-                from app import records_store
+                from app import drive, records_store
                 records_store.reset(conn)
+                drive.reset(conn)
             except Exception:
                 pass
         conn.executescript(SCHEMA)

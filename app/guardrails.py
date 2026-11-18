@@ -25,11 +25,11 @@ AGENT_SETTABLE_STATUSES = ("UNDER_REVIEW", "APPROVED", "DENIED", "ESCALATED")
 # Which tools each specialist may call. Read-only at runtime; there is no tool
 # that changes it, so an agent cannot grant itself new permissions.
 AGENT_PERMISSIONS = MappingProxyType({
-    "IntakeAgent": frozenset({"cases.create"}),
+    "IntakeAgent": frozenset({"cases.create", "drive.attach"}),
     "EmailAgent": frozenset({"email.send"}),
     "RecordsAgent": frozenset({"records.get_customer", "records.get_order", "records.get_case_history",
-                               "records.search_records"}),
-    "RefundsAgent": frozenset({"policy.search", "cases.update_status", "bank.disburse"}),
+                               "records.search_records", "drive.list_files", "drive.search_files"}),
+    "RefundsAgent": frozenset({"policy.search", "cases.update_status", "bank.disburse", "drive.get_file"}),
     "ReportingAgent": frozenset({"reporting.record_decision"}),
 })
 
@@ -284,6 +284,23 @@ def _order_exists(conn, params, session) -> Optional[Decision]:
     return None
 
 
+def _owns_file(conn, params, session) -> Optional[Decision]:
+    f = _get(conn, "files", params.get("file_id"))
+    if not f:
+        return Decision(BLOCKED, "FILE_NOT_FOUND", f"File {params.get('file_id')} does not exist.")
+    if f["customer_id"] != session:
+        return _mismatch(f"file {f['id']}", session)
+    return None
+
+
+def _file_attachable(conn, params, session) -> Optional[Decision]:
+    f = _get(conn, "files", params.get("file_id"))
+    if f["case_id"] and f["case_id"] != params.get("case_id"):
+        return Decision(BLOCKED, "FILE_ALREADY_ATTACHED",
+                        f"File {f['id']} is already attached to {f['case_id']}; a receipt can back one claim only.")
+    return None
+
+
 def _owns_case(conn, params, session) -> Optional[Decision]:
     case = _get(conn, "cases", params.get("case_id"))
     if not case:
@@ -328,6 +345,10 @@ TOOL_CHECKS: Dict[str, List[Check]] = {
     "records.get_order": [_owns_order],
     "records.get_case_history": [_owns_customer],
     "records.search_records": [_owns_customer],
+    "drive.list_files": [_owns_customer],
+    "drive.search_files": [_owns_customer],
+    "drive.attach": [_owns_file, _owns_case, _file_attachable],
+    "drive.get_file": [_owns_file],
     "policy.search": [],
     "email.send": [_owns_case, _recipient_is_customer],
     "bank.disburse": [_owns_case],  # limits are checked atomically in disburse_refund
@@ -342,10 +363,14 @@ def _summarize(params: Dict[str, Any]) -> Dict[str, Any]:
 def authorize_tool_call(conn: sqlite3.Connection, agent: str, tool: str, params: Dict[str, Any], session_customer_id: str) -> None:
     """Log the call and raise GuardrailViolation if it is not allowed."""
     decision = _authorize(conn, agent, tool, params, session_customer_id)
+    case_id = params.get("case_id")
+    if not case_id and params.get("file_id"):  # file reads are logged against the claim the file backs
+        f = _get(conn, "files", params["file_id"])
+        case_id = f["case_id"] if f and f["customer_id"] == session_customer_id else None
     log_event(
         conn, agent, f"TOOL_CALL:{tool}", decision.verdict,
         {"params": _summarize(params), "code": decision.code, "reason": decision.reason},
-        params.get("case_id"),
+        case_id,
     )
     if decision.verdict != ALLOWED:
         raise GuardrailViolation(decision)
