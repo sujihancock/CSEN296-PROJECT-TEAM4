@@ -54,6 +54,17 @@ def test_summary_must_match_status_and_amounts():
     assert [r["code"] for r in wrong_amount.rejected] == ["SUMMARY_UNKNOWN_AMOUNT"]
 
 
+def test_accurate_live_reply_is_not_rejected():
+    """A real Gemma reply that was wrongly rejected before: $0.00 paid, the $100 cap, and the word supervisor."""
+    denied = {"case_id": "CASE-B12562A3", "status": "DENIED", "amount_requested": 450.0, "refunded_amount": 0.0,
+              "reason": "The reimbursement request of $450.00 exceeds the $100 threshold for autonomous AI approval "
+                        "as specified in POL-004 and must be forwarded to a human supervisor for manual review."}
+    reply = ("Your reimbursement request for case CASE-B12562A3 has been denied, and $0.00 was paid. This is because "
+             "the request exceeds the $100 threshold for autonomous AI approval and requires manual review by a "
+             "human supervisor.")
+    assert validate_summary(reply, denied).clean
+
+
 # ------------------------------------------------------------------ orchestrator
 
 def test_normal_claim_is_planned_routed_and_summarized(conn, agent):

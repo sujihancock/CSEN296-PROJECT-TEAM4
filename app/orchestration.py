@@ -21,6 +21,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+from app import config
+
 # Step id -> (owning specialist, what the step does). Insertion order is the
 # dependency order: a case must exist before it can be emailed about, and so on.
 STEP_CATALOG: Dict[str, Dict[str, str]] = {
@@ -59,7 +61,7 @@ SPECIALISTS = ("IntakeAgent", "EmailAgent", "RecordsAgent", "RefundsAgent", "Rep
 STATUS_WORDS: Dict[str, tuple] = {
     "APPROVED": ("approved", "paid"),
     "DENIED": ("denied", "not eligible", "rejected"),
-    "ESCALATED": ("escalated", "supervisor", "under review"),
+    "ESCALATED": ("escalated", "under review", "awaiting a supervisor"),
     "BLOCKED": ("blocked", "could not be processed"),
 }
 MAX_SUMMARY_CHARS = 600
@@ -157,8 +159,9 @@ def validate_summary(proposed: Any, outcome: Dict[str, Any]) -> Check:
         rejected.append({"code": "SUMMARY_MARKUP"})
 
     status = outcome.get("status", "")
-    # Negated phrases ("nothing has been paid", "not yet approved") don't claim that status.
-    lower = re.sub(r"\b(?:not|nothing|never)(?:\s+\w+){0,2}\s+(?:paid|approved)\b", " ", text.lower())
+    # Negated phrases ("nothing has been paid", "$0.00 was paid") don't claim that status.
+    lower = re.sub(r"(?:\b(?:not|nothing|never)(?:\s+\w+){0,2}|\$\s*0(?:\.00)?(?:\s+\w+){0,2})\s+(?:paid|approved)\b",
+                   " ", text.lower())
     for other, words in STATUS_WORDS.items():
         if other == status:
             continue
@@ -166,8 +169,12 @@ def validate_summary(proposed: Any, outcome: Dict[str, Any]) -> Check:
         if hits:
             rejected.append({"code": "SUMMARY_CONTRADICTS_STATUS", "status": status, "words": hits})
 
+    # Amounts the reply may mention: what was asked, what was paid, the policy caps,
+    # and any amount the decision reason itself gives.
     allowed = {round(float(outcome.get("refunded_amount") or 0.0), 2),
-               round(float(outcome.get("amount_requested") or 0.0), 2)}
+               round(float(outcome.get("amount_requested") or 0.0), 2),
+               config.MAX_AUTONOMOUS_REFUND_PER_TX, config.MAX_WEEKLY_AUTONOMOUS_REFUNDS,
+               *(round(a, 2) for a in _amounts(str(outcome.get("reason") or "")))}
     bad = [a for a in _amounts(text) if round(a, 2) not in allowed]
     if bad:
         rejected.append({"code": "SUMMARY_UNKNOWN_AMOUNT", "amounts": bad})

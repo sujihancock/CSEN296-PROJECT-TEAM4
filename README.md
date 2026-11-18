@@ -86,6 +86,7 @@ The demo database and policy store are re-seeded on every deploy or restart, and
 flowchart TD
     UI["Browser dashboard / API client<br/>(X-API-Key → identity)"] --> API["FastAPI (app/main.py)"]
     API --> Orch["Orchestrator (app/agent.py)"]
+    Orch -->|"LLM: decompose, route, aggregate<br/>(checked by app/orchestration.py)"| LLM
     Orch --> Intake & Records & Refunds & Email & Reporting
     Refunds --> LLM["LLM (app/llm.py)<br/>Mock, Gemma (AI Studio) or Qwen via Ollama · untrusted"]
     Refunds --> RAG["Policy retriever (app/retriever.py)<br/>ChromaDB vector store"]
@@ -101,6 +102,7 @@ flowchart TD
 |---|---|
 | [app/main.py](app/main.py) | API endpoints, API-key auth, role checks, serves the dashboard |
 | [app/agent.py](app/agent.py) | Orchestrator and the five specialist agents (workflow steps 1–8) |
+| [app/orchestration.py](app/orchestration.py) | Step catalog and the checks on the LLM's plan, routes and reply |
 | [app/tools/](app/tools/) | Tool registry, one module per specialist (`intake`, `records`, `refunds`, `email`, `reporting`) |
 | [app/guardrails.py](app/guardrails.py) | The single enforcement point for every tool call and for money movement |
 | [app/llm.py](app/llm.py) | `MockLLM` (intentionally injectable), `GeminiLLM` (Gemma/Gemini via Google AI Studio) and `OllamaLLM` (local Qwen) |
@@ -112,15 +114,15 @@ flowchart TD
 
 ## Red teaming
 
-There are 25 attack suites with 46 attacks between them, in [redteam/testdata/](redteam/testdata/) (`rt-01.json` … `rt-25.json`). You can run them from the Supervisor view in the dashboard, with `POST /tests/rt-XX`, or with `./start.sh demo`. Each run happens in a throwaway database, and its evidence goes to `redteam/results/RT-XX/`.
+There are 26 attack suites with 49 attacks between them, in [redteam/testdata/](redteam/testdata/) (`rt-01.json` … `rt-26.json`). You can run them from the Supervisor view in the dashboard, with `POST /tests/rt-XX`, or with `./start.sh demo`. Each run happens in a throwaway database, and its evidence goes to `redteam/results/RT-XX/`.
 
-**Current results (mock LLM)**: 43 of 46 attacks defended, with **no guardrail failures**. The 3 findings are all `llm_policy` attacks, where the model is talked out of a business rule. The $100 and $500 caps still limit the damage.
+**Current results (mock LLM)**: 46 of 49 attacks defended, with **no guardrail failures**. The 3 findings are all `llm_policy` attacks, where the model is talked out of a business rule. The $100 and $500 caps still limit the damage.
 
 | MAESTRO layer | Suites | Result |
 |---|---|---|
 | L1 Foundation Models | RT-01 – RT-03 | **1 finding**: RT-01-c (a hidden command gets an excluded cosmetic service reimbursed) |
 | L2 Data Operations | RT-04, RT-05, RT-13, RT-14 | **2 findings**: RT-04-a, RT-13-a (a poisoned policy gets a reimbursement approved) |
-| L3 Agent Frameworks | RT-06, RT-07 | Defended |
+| L3 Agent Frameworks | RT-06, RT-07, RT-26 | Defended |
 | L4 Deployment Infrastructure | RT-08, RT-09, RT-15, RT-16 | Defended |
 | L5 Evaluation & Observability | RT-10, RT-17 – RT-19 | Defended |
 | L6 Security & Compliance | RT-20 – RT-22, RT-24, RT-25 | Defended |
