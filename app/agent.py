@@ -224,10 +224,14 @@ class Orchestrator:
     def decompose_and_route(self, conn: sqlite3.Connection, customer_id: str,
                             request: Dict[str, Any]) -> Dict[str, Any]:
         """Ask the LLM for sub-tasks and routes, then keep only what the catalog allows."""
+        t0 = time.perf_counter()
         proposed = self.llm.decompose_task("refund_request", request)
+        t1 = time.perf_counter()
         plan_check = validate_plan(proposed.get("steps"))
         steps = proposed.get("steps") if isinstance(proposed.get("steps"), list) else []
         routed = self.llm.route_subtasks(steps)
+        secs = {"decompose": round(t1 - t0, 2), "route": round(time.perf_counter() - t1, 2)}
+        fallback = bool(proposed.get("fallback_triggered") or routed.get("fallback_triggered"))
         route_check = validate_routes(plan_check.accepted, routed.get("routes"))
         rejections = plan_check.rejected + route_check.rejected
         followed = bool(proposed.get("followed_embedded_instructions") or routed.get("followed_embedded_instructions"))
@@ -237,7 +241,7 @@ class Orchestrator:
             "proposed_steps": [s.get("step") if isinstance(s, dict) else s for s in steps],
             "proposed_routes": routed.get("routes"),
             "plan": plan_check.accepted, "routes": route_check.accepted,
-            "model": proposed.get("model_used"),
+            "model": proposed.get("model_used"), "secs": secs, "fallback_triggered": fallback,
         })
         for r in rejections:
             log_event(conn, "Orchestrator", r["code"], guardrails.BLOCKED,
@@ -250,7 +254,8 @@ class Orchestrator:
             "rejections": rejections,
             "followed_embedded_instructions": followed,
             "model_used": proposed.get("model_used"),
-            "fallback_triggered": bool(proposed.get("fallback_triggered") or routed.get("fallback_triggered")),
+            "fallback_triggered": fallback,
+            "secs": secs,
         }
 
     def aggregate(self, conn: sqlite3.Connection, request: Dict[str, Any],
@@ -259,13 +264,16 @@ class Orchestrator:
         facts = {"case_id": outcome.get("case_id"), "status": outcome.get("status"),
                  "reason": outcome.get("reason", ""), "amount_requested": request["amount"],
                  "refunded_amount": outcome.get("refunded_amount", 0.0)}
+        t0 = time.perf_counter()
         proposed = self.llm.aggregate_results(request, facts)
+        secs = round(time.perf_counter() - t0, 2)
         check = validate_summary(proposed.get("summary"), facts)
         for r in check.rejected:
             log_event(conn, "Orchestrator", r["code"], guardrails.BLOCKED,
                       {**r, "proposed_summary": str(proposed.get("summary"))[:300]}, outcome.get("case_id"))
         return {"summary": check.accepted, "proposed_summary": proposed.get("summary"),
-                "rejections": check.rejected, "model_used": proposed.get("model_used"),
+                "rejections": check.rejected, "model_used": proposed.get("model_used"), "secs": secs,
+                "fallback_triggered": bool(proposed.get("fallback_triggered")),
                 "followed_embedded_instructions": bool(proposed.get("followed_embedded_instructions"))}
 
     # ------------------------------------------------------------- workflow
@@ -283,7 +291,7 @@ class Orchestrator:
         later_steps = ("plan", "intake", "records", "rag", "llm", "pay", "summary")
         ev_done: set = set()
         request = {"order_id": order_id, "amount": amount, "reason": reason}
-        model = model_label(self.llm)
+        model = getattr(self.llm, "orchestrator_model", None) or model_label(self.llm)
 
         def revoked(case_id: Optional[str] = None) -> Dict[str, Any]:
             ev.emit("guard", "bad", "PolicyGuardrail", "Kill switch is on: agent authority revoked, failing closed.",
@@ -314,8 +322,11 @@ class Orchestrator:
         n_rej = len(orch["rejections"])
         ev.emit("plan", "bad" if orch["followed_embedded_instructions"] else "warn" if n_rej else "ok", "Orchestrator",
                 f"{len(plan)} sub-tasks routed to {len(set(routes.values()))} specialists"
-                + (f"; {n_rej} change(s) from the model's proposal rejected." if n_rej else "."),
-                plan=plan, routes=routes, rejections=orch["rejections"],
+                + (f"; {n_rej} change(s) from the model's proposal rejected." if n_rej else ".")
+                + f" Decomposed in {orch['secs']['decompose']:.1f}s, routed in {orch['secs']['route']:.1f}s."
+                + (" The model did not answer in time, so the standard plan was used." if orch["fallback_triggered"] else ""),
+                plan=plan, routes=routes, rejections=orch["rejections"], secs=orch["secs"],
+                fallback_triggered=orch["fallback_triggered"],
                 followed_embedded_instructions=orch["followed_embedded_instructions"])
         ev_done.add("plan")
 

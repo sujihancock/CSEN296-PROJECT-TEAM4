@@ -141,3 +141,55 @@ def test_live_model_garbage_is_validated_not_trusted(conn):
     assert "<script>" not in res["summary"]
     codes = {r["code"] for r in res["orchestration"]["rejections"]}
     assert {"PLAN_MALFORMED", "ROUTE_MALFORMED"} <= codes
+
+
+# ------------------------------------------------------------------ speed settings
+
+def test_orchestration_calls_turn_thinking_off_but_the_decision_keeps_it(monkeypatch):
+    from app import config
+    from app.llm import GeminiLLM, decompose_messages
+    monkeypatch.setattr(config, "GEMINI_THINKING_LEVEL", "")
+    monkeypatch.setattr(config, "ORCHESTRATOR_THINKING_LEVEL", "minimal")
+    monkeypatch.setattr(config, "ORCHESTRATOR_MODEL", "gemma-4-26b-a4b-it")
+    llm = GeminiLLM(api_key="test-key", model="gemma-4-31b-it")
+    sent = {}
+
+    class Resp:
+        status_code = 200
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"candidates": [{"content": {"parts": [{"text": '{"steps": []}'}]}}]}
+
+    def fake_post(url, headers, json, timeout):
+        sent.update(url=url, body=json, timeout=timeout)
+        return Resp()
+
+    monkeypatch.setattr("app.llm.httpx.post", fake_post)
+    llm.complete_json(decompose_messages("refund_request", {"order_id": "EXP-101", "amount": 45, "reason": "x"}))
+    assert sent["body"]["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "minimal"}
+    assert "gemma-4-26b-a4b-it:generateContent" in sent["url"]
+    assert sent["timeout"] == config.ORCHESTRATOR_TIMEOUT
+    # The eligibility decision still uses the decision model with thinking on.
+    decision = llm.build_request([{"role": "user", "content": "x"}])
+    assert "thinkingConfig" not in decision["generationConfig"]
+
+
+class SlowLiveLLM(BrokenLiveLLM):
+    """A live model that times out on every orchestration call."""
+    def complete_json(self, messages):
+        import httpx
+        raise httpx.ReadTimeout("timed out after 20s")
+
+
+def test_orchestration_timeout_falls_back_to_the_standard_plan(conn):
+    from app.agent import Orchestrator
+    res = Orchestrator(SlowLiveLLM()).process_refund_request(conn, "BEN-001", "EXP-101", 45.0, "Urgent care visit copay")
+    orch = res["orchestration"]
+    assert res["status"] == "APPROVED"
+    assert orch["fallback_triggered"] and orch["plan"] == CANONICAL_PLAN and not orch["rejections"]
+    assert set(orch["secs"]) == {"decompose", "route"} and "secs" in orch["aggregation"]
+    plan_log = [e for e in get_logs(conn) if e["action"] == "ORCHESTRATOR_PLAN"][-1]
+    assert plan_log["details"]["fallback_triggered"] is True

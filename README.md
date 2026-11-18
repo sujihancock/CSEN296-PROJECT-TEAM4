@@ -63,6 +63,8 @@ cp .env.example .env    # then paste your key into GEMINI_API_KEY
 ```
 Get a key at <https://aistudio.google.com/apikey>. `.env` is git-ignored. The default model is **Gemma 4 31B** (`gemma-4-31b-it`), the largest Gemma on the API, picked for policy reasoning and resistance to injected instructions. Set `GEMINI_MODEL=gemma-4-26b-a4b-it` for a faster mixture-of-experts Gemma, or to any Gemini model id. Without a key the app keeps using the mock LLM, and if a model call fails it falls back to the mock unless you set `GEMINI_FALLBACK_TO_MOCK=false`. `./start.sh test` ignores `.env`, so the tests always use the mock.
 
+The orchestrator's own model calls (task decomposition, agent routing and the reply to the beneficiary) run with Gemma's thinking turned off (`ORCHESTRATOR_THINKING_LEVEL=minimal`). Their output is checked in code, and turning thinking off roughly halves each call. The eligibility decision still follows `GEMINI_THINKING_LEVEL`. They also run on **Gemma 4 26B** (`gemma-4-26b-a4b-it`) by default. In our measurements a call took about 3 seconds on it, against 20–27 seconds on the 31B, which is often busy. Set `ORCHESTRATOR_MODEL` to change this. Each call has a `ORCHESTRATOR_TIMEOUT` ceiling, 20 seconds by default. If the model doesn't answer in time, the claim continues with the standard plan, and the fallback is logged. The Sandbox shows how long each call took, and so does the `ORCHESTRATOR_PLAN` audit entry.
+
 **Running with a local Qwen model through Ollama**:
 ```bash
 ./scripts/setup_ollama.sh qwen3.5:2b

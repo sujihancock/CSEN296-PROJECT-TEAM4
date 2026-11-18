@@ -73,7 +73,7 @@ class BaseLLM(abc.ABC):
         raise NotImplementedError
 
     def _orchestrate(self, kind: str, messages: List[Dict[str, str]], key: str, mock_call) -> Dict[str, Any]:
-        model = getattr(self, "model", type(self).__name__)
+        model = getattr(self, "orchestrator_model", None) or getattr(self, "model", type(self).__name__)
         try:
             parsed = load_json(self.complete_json(messages))
             return {key: parsed.get(key), "model_used": model}
@@ -241,7 +241,7 @@ def decompose_messages(task: str, request: Dict[str, Any]) -> List[Dict[str, str
         "Break the request into the sub-tasks needed to handle it, choosing only from these step ids, "
         "in the order they must run:\n" + _catalog_text() + "\n"
         + UNTRUSTED_NOTE + "\n"
-        'Return ONLY JSON: {"steps": [{"step": "<step id>", "purpose": "<one sentence>"}, ...]}'
+        'Return ONLY JSON, no other text: {"steps": [{"step": "<step id>", "purpose": "<at most 8 words>"}, ...]}'
     )
     user = (f"Task type: {task}\n"
             f"Expense ID: {request.get('order_id')}\n"
@@ -450,7 +450,8 @@ class OllamaLLM(BaseLLM):
     def complete_json(self, messages: List[Dict[str, str]]) -> str:
         payload = {"model": self.model, "messages": messages, "format": "json", "stream": False,
                    "options": {"temperature": 0.1}}
-        resp = httpx.post(f"{self.base_url}/api/chat", json=payload, timeout=self.timeout)
+        resp = httpx.post(f"{self.base_url}/api/chat", json=payload,
+                          timeout=min(self.timeout, config.ORCHESTRATOR_TIMEOUT))
         resp.raise_for_status()
         return resp.json().get("message", {}).get("content", "{}")
 
@@ -538,19 +539,26 @@ class GeminiLLM(BaseLLM):
     def has_key(self) -> bool:
         return bool(self.api_key)
 
-    def build_request(self, messages: List[Dict[str, str]]) -> Dict[str, Any]:
-        """Map the shared system/user messages onto Gemini's request shape."""
+    def build_request(self, messages: List[Dict[str, str]], thinking_level: Optional[str] = None,
+                      model: Optional[str] = None) -> Dict[str, Any]:
+        """Map the shared system/user messages onto Gemini's request shape.
+
+        `thinking_level` and `model` default to the decision settings (GEMINI_*);
+        the orchestrator's calls pass their own.
+        """
+        model = model or self.model
+        thinking_level = self.thinking_level if thinking_level is None else thinking_level
         system = "\n\n".join(m["content"] for m in messages if m["role"] == "system")
         contents = [
             {"role": "user", "parts": [{"text": m["content"]}]}
             for m in messages if m["role"] != "system"
         ]
         generation_config: Dict[str, Any] = {"temperature": 0.1}
-        if not self.is_gemma():
+        if not model.lower().startswith("gemma"):
             generation_config["responseMimeType"] = "application/json"
-        if self.thinking_level:
+        if thinking_level:
             # Gemma 4 on this API accepts only "minimal" (thinking off); Gemini models accept more levels.
-            generation_config["thinkingConfig"] = {"thinkingLevel": self.thinking_level}
+            generation_config["thinkingConfig"] = {"thinkingLevel": thinking_level}
         return {
             "systemInstruction": {"parts": [{"text": system}]},
             "contents": contents,
@@ -564,7 +572,16 @@ class GeminiLLM(BaseLLM):
     def complete_json(self, messages: List[Dict[str, str]]) -> str:
         if not self.api_key:
             raise RuntimeError("GEMINI_API_KEY is not set.")
-        return self.extract_text(self._post(self.build_request(messages)).json())
+        model = self.orchestrator_model
+        body = self.build_request(messages, thinking_level=config.ORCHESTRATOR_THINKING_LEVEL, model=model)
+        resp = self._post(body, model=model, timeout=config.ORCHESTRATOR_TIMEOUT,
+                          max_retries=config.ORCHESTRATOR_MAX_RETRIES)
+        return self.extract_text(resp.json())
+
+    @property
+    def orchestrator_model(self) -> str:
+        """The model for planning, routing and the reply (see config.ORCHESTRATOR_MODEL)."""
+        return config.ORCHESTRATOR_MODEL or self.model
 
     def is_gemma(self) -> bool:
         return self.model.lower().startswith("gemma")
@@ -584,20 +601,24 @@ class GeminiLLM(BaseLLM):
 
     RETRY_STATUSES = (429, 500, 503)
 
-    def _post(self, body: Dict[str, Any]) -> httpx.Response:
+    def _post(self, body: Dict[str, Any], model: Optional[str] = None, timeout: Optional[float] = None,
+              max_retries: Optional[int] = None) -> httpx.Response:
         """POST generateContent, retrying briefly when the model is busy.
 
         Hosted Gemma often answers "503 high demand" in well under a second, so a
         couple of quick retries usually succeed instead of falling back to the mock.
         """
-        url = f"{self.API_BASE}/models/{self.model}:generateContent"
+        model = model or self.model
+        timeout = self.timeout if timeout is None else timeout
+        max_retries = self.max_retries if max_retries is None else max_retries
+        url = f"{self.API_BASE}/models/{model}:generateContent"
         headers = {"x-goog-api-key": self.api_key, "Content-Type": "application/json"}
-        for attempt in range(self.max_retries + 1):
-            resp = httpx.post(url, headers=headers, json=body, timeout=self.timeout)
-            if resp.status_code not in self.RETRY_STATUSES or attempt == self.max_retries:
+        for attempt in range(max_retries + 1):
+            resp = httpx.post(url, headers=headers, json=body, timeout=timeout)
+            if resp.status_code not in self.RETRY_STATUSES or attempt == max_retries:
                 break
             delay = 1.5 * (2 ** attempt)
-            logger.info(f"{self.model} returned {resp.status_code}; retrying in {delay:.1f}s.")
+            logger.info(f"{model} returned {resp.status_code}; retrying in {delay:.1f}s.")
             time.sleep(delay)
         resp.raise_for_status()
         return resp

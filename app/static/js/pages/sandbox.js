@@ -114,9 +114,11 @@ function planResult(p) {
   return {
     state: p.followed_embedded_instructions ? "bad" : rej.length ? "warn" : "ok",
     tag: rej.length ? `${rej.length} rejected` : `${(p.plan || []).length} sub-tasks`,
-    text: rej.length
+    text: (rej.length
       ? "The model's plan was corrected before anything ran."
-      : "Sub-tasks and routes accepted as proposed.",
+      : p.fallback_triggered ? "The model did not answer in time, so the standard plan was used."
+      : "Sub-tasks and routes accepted as proposed.")
+      + (p.secs ? ` Decomposed in ${fmtSecs(p.secs.decompose)}, routed in ${fmtSecs(p.secs.route)}.` : ""),
     detail: el("div", {},
       el("ol", { class: "sb-note" }, (p.plan || []).map(s => el("li", {}, el("code", {}, s), ` → ${routes[s] || "?"}`))),
       rej.length ? el("ul", { class: "sb-flag" }, rej.map(r => el("li", {},
@@ -426,6 +428,14 @@ function clearLiveLog() {
 
 function onStepEvent(e) {
   const now = performance.now();
+  // Show the outcome as soon as the money decision is made; the model's reply comes after.
+  const d = e.data || {};
+  if (e.step === "intake" && d.case_id) live.caseId = currentCaseId = d.case_id;
+  if (e.step === "llm" && d.proposal) live.reason = d.proposal.rationale;
+  if (e.step === "guard" && d.guardrail) live.reason = d.guardrail.reason;
+  if (e.step === "pay" && e.state !== "running" && d.status) {
+    renderOutcome({ status: d.status, case_id: live.caseId, refunded_amount: d.paid || 0, reason: live.reason });
+  }
   if (e.state === "running") live.stepStart[e.step] = now;
   else if (live.stepStart[e.step] != null) live.stepSecs[e.step] = (now - live.stepStart[e.step]) / 1000;
   updateStep(e.step, eventResult(e));
@@ -464,7 +474,7 @@ $("sandboxForm").addEventListener("submit", (ev) => {
   busy($("sbSubmitBtn"), async () => {
     fill("outcomeBox");
     clearLiveLog();
-    Object.assign(live, { started: performance.now(), stepStart: {}, stepSecs: {} });
+    Object.assign(live, { started: performance.now(), stepStart: {}, stepSecs: {}, caseId: null, reason: null });
     $("pipelineStatusBadge").textContent = "Running · 0.0s";
     $("pipelineEmpty").hidden = true;
     renderSteps("pending");

@@ -44,6 +44,21 @@ GEMINI_MAX_RETRIES = int(os.getenv("GEMINI_MAX_RETRIES", "3"))  # retries on 429
 GEMINI_THINKING_LEVEL = os.getenv("GEMINI_THINKING_LEVEL", "").strip().lower()
 GEMINI_FALLBACK_TO_MOCK = os.getenv("GEMINI_FALLBACK_TO_MOCK", "true").lower() in ("true", "1", "yes")
 
+# The orchestrator's own LLM calls (task decomposition, agent routing, response
+# aggregation). Their output is checked by app/orchestration.py, so they don't need
+# the model to think first: turning thinking off roughly halves each call. The
+# GEMINI_* settings above still govern the eligibility decision.
+ORCHESTRATOR_THINKING_LEVEL = os.getenv("ORCHESTRATOR_THINKING_LEVEL", "minimal").strip().lower()
+# Measured on AI Studio (Nov 2026), route call with thinking off: Gemma 4 31B ~20-27s,
+# Gemma 4 26B MoE ~3s, so Gemma deployments plan and reply on the 26B by default.
+# Set ORCHESTRATOR_MODEL to override (any model id; empty or unset picks the default).
+ORCHESTRATOR_MODEL = (os.getenv("ORCHESTRATOR_MODEL", "").strip()
+                      or ("gemma-4-26b-a4b-it" if GEMINI_MODEL.startswith("gemma-4") else GEMINI_MODEL))
+# A hard ceiling per call. On timeout the orchestrator falls back to the mock's
+# canonical plan (logged with fallback_triggered), so a slow model can't stall a claim.
+ORCHESTRATOR_TIMEOUT = float(os.getenv("ORCHESTRATOR_TIMEOUT", "20"))
+ORCHESTRATOR_MAX_RETRIES = int(os.getenv("ORCHESTRATOR_MAX_RETRIES", "2"))
+
 # Mock authentication: demo API keys -> (role, user id).
 # The API derives identity from the key, never from the request body.
 API_KEYS = {
