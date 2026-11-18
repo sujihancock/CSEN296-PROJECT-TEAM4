@@ -99,21 +99,84 @@ const STEPS = [
   { id: "pay", name: "Payout and email", does: "Pays the reimbursement if allowed, then emails the beneficiary" },
 ];
 
+// Live run state: when each step started running and how long it took.
+const live = { started: 0, stepStart: {}, stepSecs: {}, timer: null };
+
+function stepLi(s, i, r) {
+  const secs = live.stepSecs[s.id];
+  return el("li", { class: "sb-step", "data-state": r.state, "data-step": s.id },
+    el("span", { class: "sb-step-num", "aria-hidden": "true" }, String(i + 1)),
+    el("div", { class: "sb-step-body" },
+      el("div", { class: "sb-step-head" },
+        el("span", { class: "sb-step-name" }, s.name),
+        el("span", { class: "sb-step-meta" },
+          r.tag ? el("span", { class: `sb-step-tag ${r.state}`, "data-live-tag": r.state === "running" ? "" : null }, r.tag) : null,
+          r.state !== "running" && secs != null ? el("span", { class: "sb-step-time", title: "Time this step took" }, fmtSecs(secs)) : null)),
+      el("p", { class: "sb-step-text" }, r.text),
+      r.detail || null));
+}
+
+// results: final per-step results; "pending" draws every step waiting for its turn.
 function renderSteps(results) {
   const wrap = $("pipelineWrap");
   wrap.hidden = false;
   $("pipelineEmpty").hidden = true;
-  fill("pipelineWrap", STEPS.map((s, i) => {
-    const r = results ? results[s.id] : { state: "running", text: s.does };
-    return el("li", { class: "sb-step", "data-state": r.state },
-      el("span", { class: "sb-step-num", "aria-hidden": "true" }, String(i + 1)),
-      el("div", { class: "sb-step-body" },
-        el("div", { class: "sb-step-head" },
-          el("span", { class: "sb-step-name" }, s.name),
-          r.tag ? el("span", { class: `sb-step-tag ${r.state}` }, r.tag) : null),
-        el("p", { class: "sb-step-text" }, r.text),
-        r.detail || null));
-  }));
+  fill("pipelineWrap", STEPS.map((s, i) => stepLi(s, i,
+    results === "pending" ? { state: "pending", tag: "Waiting", text: s.does }
+      : results ? results[s.id] : { state: "running", text: s.does })));
+}
+
+function updateStep(id, r) {
+  const i = STEPS.findIndex(s => s.id === id);
+  const node = $("pipelineWrap").querySelector(`[data-step="${id}"]`);
+  if (i < 0 || !node) return;
+  node.replaceWith(stepLi(STEPS[i], i, r));
+}
+
+const fmtSecs = (x) => x < 10 ? `${x.toFixed(1)}s` : `${Math.round(x)}s`;
+
+// ---------------------------------------------------------------- Step detail builders (live and final)
+function policiesDetail(pols) {
+  return el("ul", { class: "sb-policies" }, pols.map(p => el("li", {},
+    el("span", { class: "pg-policy-id" }, p.id),
+    el("span", { class: "sb-pol-title" }, p.title),
+    p.score != null ? el("span", { class: "sb-pol-score", title: "Cosine similarity to the claim" }, `${Math.round(p.score * 100)}% match`) : null)));
+}
+
+function proposalResult(prop) {
+  const approve = prop.action === "APPROVE";
+  return {
+    state: prop.followed_embedded_instructions ? "bad" : approve ? "ok" : "warn",
+    tag: `Proposed ${approve ? "approve" : "deny"} · ${money(prop.amount)}`,
+    text: prop.rationale,
+    detail: prop.followed_embedded_instructions
+      ? el("p", { class: "sb-flag" }, "The model followed instructions written inside the claim. This is what the guardrails are for.")
+      : (prop.policies_considered || []).length ? el("p", { class: "sb-note" }, `Cited ${prop.policies_considered.join(", ")}${prop.model_used ? ` · ${prop.model_used}` : ""}.`) : null,
+  };
+}
+
+// Turns one streamed step event into what its row should show right now.
+function eventResult(e) {
+  const d = e.data || {};
+  if (e.state === "running") {
+    return { state: "running", tag: e.step === "llm" ? `Waiting on ${d.model || "the model"} · 0.0s` : "Running · 0.0s", text: e.message };
+  }
+  if (e.state === "skip") return { state: "skip", tag: "Skipped", text: e.message };
+  switch (e.step) {
+    case "intake": return { state: e.state, tag: d.case_id || "Opened", text: e.message };
+    case "records": return { state: e.state, tag: "Owner verified", text: e.message };
+    case "rag": return (d.policies || []).length
+      ? { state: e.state, tag: `${d.policies.length} found`, text: "Policies passed to the model as context:", detail: policiesDetail(d.policies) }
+      : { state: "warn", tag: "None", text: "No matching policy, so the model had nothing to cite." };
+    case "llm": return d.proposal ? proposalResult(d.proposal) : { state: e.state, tag: "Answered", text: e.message };
+    case "guard": {
+      const st = d.status || "";
+      return { state: e.state, tag: st === "APPROVED" ? "Passed" : st ? st.charAt(0) + st.slice(1).toLowerCase() : "Done", text: e.message,
+        detail: d.guardrail ? el("p", { class: "sb-note" }, "Rule ", el("code", {}, d.guardrail.code), ` · ${d.guardrail.verdict}`) : null };
+    }
+    case "pay": return { state: e.state, tag: d.status === "APPROVED" ? `Paid ${money(d.paid)}` : d.status === "ESCALATED" ? "Held" : "Not paid", text: e.message };
+    default: return { state: e.state, text: e.message };
+  }
 }
 
 function stepResults(r) {
@@ -131,26 +194,12 @@ function stepResults(r) {
 
   const pols = r.retrieved_policies || [];
   out.rag = pols.length
-    ? {
-      state: "ok", tag: `${pols.length} found`, text: "Policies passed to the model as context:",
-      detail: el("ul", { class: "sb-policies" }, pols.map(p => el("li", {},
-        el("span", { class: "pg-policy-id" }, p.id),
-        el("span", { class: "sb-pol-title" }, p.title),
-        p.score != null ? el("span", { class: "sb-pol-score", title: "Cosine similarity to the claim" }, `${Math.round(p.score * 100)}% match`) : null))),
-    }
+    ? { state: "ok", tag: `${pols.length} found`, text: "Policies passed to the model as context:", detail: policiesDetail(pols) }
     : { state: revoked ? "skip" : "warn", tag: revoked ? "Skipped" : "None", text: revoked ? "Not reached." : "No matching policy, so the model had nothing to cite." };
 
   const prop = r.llm_proposal;
   if (prop) {
-    const approve = prop.action === "APPROVE";
-    out.llm = {
-      state: prop.followed_embedded_instructions ? "bad" : approve ? "ok" : "warn",
-      tag: `Proposed ${approve ? "approve" : "deny"} · ${money(prop.amount)}`,
-      text: prop.rationale,
-      detail: prop.followed_embedded_instructions
-        ? el("p", { class: "sb-flag" }, "The model followed instructions written inside the claim. This is what the guardrails are for.")
-        : (prop.policies_considered || []).length ? el("p", { class: "sb-note" }, `Cited ${prop.policies_considered.join(", ")}.`) : null,
-    };
+    out.llm = proposalResult(prop);
   } else {
     out.llm = { state: "skip", tag: "Skipped", text: revoked ? "The kill switch is on, so the model was never called." : "No proposal was made." };
   }
@@ -227,29 +276,130 @@ async function decideCurrentCase(approve) {
   });
 }
 
+// ---------------------------------------------------------------- Live streaming (sandbox only)
+// POST /tasks/stream answers with one JSON object per line: step events as the
+// pipeline runs, pings while the model thinks, then the same result /tasks returns.
+class StreamUnavailable extends Error {}
+
+async function streamTask(body, key, onEvent) {
+  let res;
+  try {
+    res = await fetch("/tasks/stream", {
+      method: "POST",
+      headers: { "X-API-Key": key, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch (e) {
+    throw new StreamUnavailable(e.message);
+  }
+  if (res.status === 404 || res.status === 405 || !res.body) throw new StreamUnavailable(`stream ${res.status}`);
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    const d = data && data.detail;
+    const msg = typeof d === "string" ? d : (d && d.reason) || `Request failed (${res.status})`;
+    throw new Error(res.status === 403 ? `Rejected (403): ${msg}` : msg);
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "", result = null;
+  const handle = (line) => {
+    if (!line.trim()) return;
+    const msg = JSON.parse(line);
+    if (msg.type === "result") result = msg.result;
+    else if (msg.type === "error") throw new Error(`The claim failed on the server: ${msg.message}`);
+    else onEvent(msg);
+  };
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let nl;
+    while ((nl = buf.indexOf("\n")) >= 0) { handle(buf.slice(0, nl)); buf = buf.slice(nl + 1); }
+  }
+  handle(buf + decoder.decode());
+  if (!result) throw new Error("The stream ended before the claim finished.");
+  return result;
+}
+
+function logEvent(e) {
+  const log = $("sbLiveLog");
+  if (!log) return;
+  log.append(el("li", { class: `sb-log-row ${e.state}` },
+    el("span", { class: "sb-log-t font-mono" }, `+${e.t.toFixed(2)}s`),
+    el("span", { class: "sb-log-agent" }, e.agent),
+    el("span", { class: "sb-log-msg" }, e.message)));
+  $("sbLiveLogWrap").hidden = false;
+  log.lastElementChild.scrollIntoView({ block: "nearest" });
+}
+
+function clearLiveLog() {
+  fill("sbLiveLog");
+  $("sbLiveLogWrap").hidden = true;
+}
+
+function onStepEvent(e) {
+  const now = performance.now();
+  if (e.state === "running") live.stepStart[e.step] = now;
+  else if (live.stepStart[e.step] != null) live.stepSecs[e.step] = (now - live.stepStart[e.step]) / 1000;
+  updateStep(e.step, eventResult(e));
+  if (e.state !== "skip") logEvent(e);  // the step rows already say "Skipped"
+}
+
+// One ticker keeps the header badge and any running step's timer current.
+function startTicker() {
+  stopTicker();
+  live.timer = setInterval(() => {
+    const now = performance.now();
+    $("pipelineStatusBadge").textContent = `Running · ${fmtSecs((now - live.started) / 1000)}`;
+    $("pipelineWrap").querySelectorAll('.sb-step[data-state="running"]').forEach(li => {
+      const tag = li.querySelector("[data-live-tag]");
+      const t0 = live.stepStart[li.dataset.step];
+      if (tag && t0 != null) tag.textContent = tag.textContent.replace(/[\d.]+s$/, fmtSecs((now - t0) / 1000));
+    });
+  }, 250);
+}
+function stopTicker() { if (live.timer) clearInterval(live.timer); live.timer = null; }
+
+async function runClaim(body, key) {
+  try {
+    return await streamTask(body, key, (msg) => { if (msg.type === "step") onStepEvent(msg); });
+  } catch (e) {
+    if (!(e instanceof StreamUnavailable)) throw e;
+    // Live trace unavailable (older server, proxy): run it the normal way.
+    $("pipelineStatusBadge").textContent = "Running…";
+    renderSteps(null);
+    return (await api("POST", "/tasks", body, key)).result;
+  }
+}
+
 $("sandboxForm").addEventListener("submit", (ev) => {
   ev.preventDefault();
   busy($("sbSubmitBtn"), async () => {
     fill("outcomeBox");
-    $("pipelineStatusBadge").textContent = "Running…";
+    clearLiveLog();
+    Object.assign(live, { started: performance.now(), stepStart: {}, stepSecs: {} });
+    $("pipelineStatusBadge").textContent = "Running · 0.0s";
     $("pipelineEmpty").hidden = true;
-    renderSteps(null);
+    renderSteps("pending");
     currentAmount = parseFloat($("sbAmount").value);
+    startTicker();
     let res;
     try {
-      res = (await api("POST", "/tasks", {
+      res = await runClaim({
         task: "refund_request",
         data: { order_id: $("sbOrder").value, amount: parseFloat($("sbAmount").value), reason: $("sbReason").value },
-      }, $("sbCustomer").value)).result;
+      }, $("sbCustomer").value);
     } catch (err) {
+      stopTicker();
       $("pipelineStatusBadge").textContent = "";
       $("pipelineWrap").hidden = true;
       $("pipelineEmpty").hidden = false;
       fill("pipelineEmpty", el("p", { class: "ov-error" }, err.message));
       return;
     }
+    stopTicker();
     currentCaseId = res.case_id;
-    $("pipelineStatusBadge").textContent = "";
+    $("pipelineStatusBadge").textContent = `Finished in ${fmtSecs((performance.now() - live.started) / 1000)}`;
     renderOutcome(res);
     renderSteps(stepResults(res));
     // Stacked layout: the result sits below the form, so bring it into view.
@@ -262,11 +412,12 @@ async function sandboxReset() {
   if (!(await resetDemoData("admin-key"))) return;
   currentCaseId = null;
   fill("outcomeBox");
+  clearLiveLog();
   $("pipelineStatusBadge").textContent = "";
   $("pipelineWrap").hidden = true;
   $("pipelineEmpty").hidden = false;
   fill("pipelineEmpty", el("p", {}, "Nothing has run yet."),
-    el("p", {}, "Pick a scenario or write your own claim, then press Run claim. The outcome shows here first, followed by what each agent and guardrail did."));
+    el("p", {}, "Pick a scenario or write your own claim, then press Run claim. Each agent and guardrail step fills in live as the claim runs, and the outcome shows at the top when it finishes."));
   await loadSandbox();
 }
 

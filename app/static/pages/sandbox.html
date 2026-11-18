@@ -92,10 +92,14 @@
         </header>
         <div id="pipelineEmpty" class="ov-empty">
           <p>Nothing has run yet.</p>
-          <p>Pick a scenario or write your own claim, then press Run claim. The outcome shows here first, followed by what each agent and guardrail did.</p>
+          <p>Pick a scenario or write your own claim, then press Run claim. Each agent and guardrail step fills in live as the claim runs, and the outcome shows at the top when it finishes.</p>
         </div>
         <div id="outcomeBox"></div>
         <ol id="pipelineWrap" class="sb-steps" hidden></ol>
+        <section id="sbLiveLogWrap" class="sb-log-wrap" aria-labelledby="sbLiveLogTitle" hidden>
+          <h3 id="sbLiveLogTitle" class="sb-log-title">Live log</h3>
+          <ol id="sbLiveLog" class="sb-log" aria-live="polite"></ol>
+        </section>
       </section>
     </div>
   </div>

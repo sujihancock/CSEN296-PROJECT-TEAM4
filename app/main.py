@@ -5,6 +5,11 @@ Run: uvicorn app.main:app --reload --port 8000
 Mock authentication: send `X-API-Key` (see app/config.py). Identity always
 comes from the key, never from the request body.
 """
+import json
+import logging
+import queue
+import threading
+import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any, Dict, Iterator, Optional
@@ -12,7 +17,7 @@ from typing import Any, Dict, Iterator, Optional
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -123,9 +128,8 @@ def health(conn=Depends(db)):
     return {"status": "ok", "kill_switch_active": guardrails.is_kill_switch_active(conn)}
 
 
-@app.post("/tasks")
-def submit_task(req: TaskRequest, who: Identity = Depends(require("customer")), conn=Depends(db)):
-    """Submit a task to the agent. Supported: refund_request {order_id, amount, reason}."""
+def _validate_task(req: "TaskRequest", who: Identity, conn) -> float:
+    """Shared checks for /tasks and /tasks/stream. Returns the parsed amount."""
     claimed = req.data.get("customer_id")
     if claimed is not None and claimed != who.user_id:
         audit.log_event(conn, who.user_id, "API_IDENTITY_MISMATCH", "BLOCKED", {"claimed_customer_id": claimed})
@@ -141,9 +145,61 @@ def submit_task(req: TaskRequest, who: Identity = Depends(require("customer")), 
         amount = float(req.data["amount"])
     except (TypeError, ValueError):
         raise HTTPException(422, "amount must be a number")
+    return amount
+
+
+@app.post("/tasks")
+def submit_task(req: TaskRequest, who: Identity = Depends(require("customer")), conn=Depends(db)):
+    """Submit a task to the agent. Supported: refund_request {order_id, amount, reason}."""
+    amount = _validate_task(req, who, conn)
     result = agent.process_refund_request(conn, who.user_id, str(req.data["order_id"]), amount,
                                           str(req.data.get("reason", "")))
     return {"status": "ok", "result": result}
+
+
+STREAM_KEEPALIVE_SECS = 5.0
+
+
+@app.post("/tasks/stream")
+def submit_task_stream(req: TaskRequest, who: Identity = Depends(require("customer")), conn=Depends(db)):
+    """Same as /tasks, but streams live step events as NDJSON (used by the Sandbox).
+
+    Each line is a JSON object: {"type": "step", ...} as each pipeline step runs,
+    {"type": "ping"} while waiting on the model, then one {"type": "result"}
+    (same payload as /tasks) or {"type": "error"}.
+    """
+    amount = _validate_task(req, who, conn)  # 403/422 before any streaming starts
+    order_id, reason, user_id = str(req.data["order_id"]), str(req.data.get("reason", "")), who.user_id
+    events: "queue.Queue[Optional[Dict[str, Any]]]" = queue.Queue()
+    started = time.perf_counter()
+
+    def run() -> None:
+        # The request's connection closes before a streamed body is sent, so the claim gets its own.
+        own = get_connection()
+        try:
+            result = agent.process_refund_request(own, user_id, order_id, amount, reason, on_event=events.put)
+            events.put({"type": "result", "result": result})
+        except Exception as e:  # noqa: BLE001 - report to the client instead of dropping the stream
+            logging.getLogger(__name__).exception("Streamed claim failed")
+            events.put({"type": "error", "message": str(e) or type(e).__name__})
+        finally:
+            own.close()
+            events.put(None)
+
+    threading.Thread(target=run, name=f"claim-stream-{user_id}", daemon=True).start()
+
+    def lines() -> Iterator[str]:
+        while True:
+            try:
+                item = events.get(timeout=STREAM_KEEPALIVE_SECS)
+            except queue.Empty:
+                item = {"type": "ping", "t": round(time.perf_counter() - started, 3)}
+            if item is None:
+                return
+            yield json.dumps(item, default=str) + "\n"
+
+    return StreamingResponse(lines(), media_type="application/x-ndjson",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @app.get("/logs")
