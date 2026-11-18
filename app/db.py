@@ -142,6 +142,8 @@ def init_db(seed: bool = True, drop_existing: bool = False, path: Optional[Path]
             try:
                 from app.retriever import get_store_for_conn
                 get_store_for_conn(conn).reset()
+                from app import records_store
+                records_store.reset(conn)
             except Exception:
                 pass
         conn.executescript(SCHEMA)
@@ -217,5 +219,7 @@ def _seed(conn: sqlite3.Connection) -> None:
     try:
         from app.retriever import Retriever
         Retriever().sync_from_db(conn)
+        from app import records_store
+        records_store.sync_all(conn)
     except Exception:
         pass

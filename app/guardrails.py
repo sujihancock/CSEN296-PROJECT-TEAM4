@@ -27,7 +27,8 @@ AGENT_SETTABLE_STATUSES = ("UNDER_REVIEW", "APPROVED", "DENIED", "ESCALATED")
 AGENT_PERMISSIONS = MappingProxyType({
     "IntakeAgent": frozenset({"cases.create"}),
     "EmailAgent": frozenset({"email.send"}),
-    "RecordsAgent": frozenset({"records.get_customer", "records.get_order", "records.get_case_history"}),
+    "RecordsAgent": frozenset({"records.get_customer", "records.get_order", "records.get_case_history",
+                               "records.search_records"}),
     "RefundsAgent": frozenset({"policy.search", "cases.update_status", "bank.disburse"}),
     "ReportingAgent": frozenset({"reporting.record_decision"}),
 })
@@ -239,6 +240,8 @@ def supervisor_decide(conn: sqlite3.Connection, case_id: str, supervisor_id: str
         raise
     log_event(conn, supervisor_id, f"SUPERVISOR_OVERRIDE_{status}", "OVERRIDDEN",
               {"comment": comment, "amount": amount}, case_id)
+    from app import records_store
+    records_store.index_case_and_profile(conn, case_id)
     return {"case_id": case_id, "status": status, "reason": reason, "new_bank_balance": new_balance}
 
 
@@ -250,6 +253,8 @@ def mark_case(conn: sqlite3.Connection, case_id: str, status: str, reason: str) 
     )
     conn.commit()
     log_event(conn, "PolicyGuardrail", f"CASE_{status}", BLOCKED, {"reason": reason}, case_id)
+    from app import records_store
+    records_store.index_case(conn, case_id)
 
 
 # --------------------------------------------------------------------------
@@ -322,6 +327,7 @@ TOOL_CHECKS: Dict[str, List[Check]] = {
     "records.get_customer": [_owns_customer],
     "records.get_order": [_owns_order],
     "records.get_case_history": [_owns_customer],
+    "records.search_records": [_owns_customer],
     "policy.search": [],
     "email.send": [_owns_case, _recipient_is_customer],
     "bank.disburse": [_owns_case],  # limits are checked atomically in disburse_refund

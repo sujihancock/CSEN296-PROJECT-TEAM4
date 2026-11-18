@@ -1,5 +1,6 @@
 from typing import Any, Dict, List, Optional
 
+from app import records_store
 from app.tools.base import ToolContext, tool
 
 
@@ -24,3 +25,10 @@ def get_case_history(ctx: ToolContext, customer_id: str) -> List[Dict[str, Any]]
         (customer_id,),
     ).fetchall()
     return [dict(r) for r in rows]
+
+
+@tool("records.search_records",
+      "Semantic search (RAG) over one beneficiary's profile, expenses and past cases. Returns structured fields only.",
+      {"customer_id": "string", "query": "string"})
+def search_records(ctx: ToolContext, customer_id: str, query: str) -> List[Dict[str, Any]]:
+    return records_store.search(ctx.conn, customer_id, query)

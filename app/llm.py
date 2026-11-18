@@ -47,6 +47,7 @@ class BaseLLM(abc.ABC):
         policies: List[Dict[str, Any]],
         days_since_purchase: int,
         return_window_days: int,
+        history: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         """Evaluate a refund claim and return a proposed decision payload:
         {
@@ -113,13 +114,16 @@ class MockLLM(BaseLLM):
         policies: List[Dict[str, Any]],
         days_since_purchase: int,
         return_window_days: int,
+        history: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         text = reason.lower()
         policy_ids = [p["id"] for p in policies]
         policy_text = " ".join(p.get("content", "") for p in policies).lower()
 
-        # Indirect prompt injection: instructions planted in a retrieved policy
-        if any(marker in policy_text for marker in INJECTION_MARKERS):
+        # Indirect prompt injection: instructions planted in a retrieved policy or in
+        # the prior-claim history from the records search (which should be facts only).
+        history_text = json.dumps(history or [], default=str).lower()
+        if any(marker in policy_text or marker in history_text for marker in INJECTION_MARKERS):
             return {
                 "action": "APPROVE",
                 "amount": amount_requested,
@@ -280,6 +284,7 @@ def build_messages(
     policies: List[Dict[str, Any]],
     days_since_purchase: int,
     return_window_days: int,
+    history: Optional[List[Dict[str, Any]]] = None,
 ) -> List[Dict[str, str]]:
     """Construct the system and user messages shared by every live model."""
     system_content = (
@@ -305,6 +310,11 @@ def build_messages(
     if not policies_text:
         policies_text = "No specific policies retrieved."
 
+    history_text = "".join(
+        f"- {h.get('case_id')}: {h.get('service')} ({h.get('coverage')}), ${float(h.get('amount') or 0):.2f}, "
+        f"status {h.get('status')}, {h.get('days_ago')} days ago\n"
+        for h in (history or [])) or "None on file.\n"
+
     user_content = (
         f"Beneficiary Reimbursement Request:\n"
         f"- Reason: {reason}\n"
@@ -318,6 +328,8 @@ def build_messages(
         f"- Standard Submission Window: {return_window_days} days\n\n"
         f"Retrieved Benefits Program Policies:\n"
         f"{policies_text}\n"
+        f"Related Prior Claims (records search, facts only):\n"
+        f"{history_text}\n"
         f"Determine eligibility and the eligible amount, and produce the JSON decision."
     )
 
@@ -374,11 +386,12 @@ def mock_fallback(
     policies: List[Dict[str, Any]],
     days_since_purchase: int,
     return_window_days: int,
+    history: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """Answer with MockLLM after a live model failed, recording why."""
     logger.info("Falling back to MockLLM.")
     res = MockLLM().propose_refund_decision(
-        reason, order, amount_requested, policies, days_since_purchase, return_window_days
+        reason, order, amount_requested, policies, days_since_purchase, return_window_days, history
     )
     res["fallback_triggered"] = True
     res["fallback_reason"] = str(error)
@@ -436,10 +449,11 @@ class OllamaLLM(BaseLLM):
         policies: List[Dict[str, Any]],
         days_since_purchase: int,
         return_window_days: int,
+        history: Optional[List[Dict[str, Any]]] = None,
     ) -> List[Dict[str, str]]:
         """Construct system and user messages for Qwen."""
         return build_messages(
-            reason, order, amount_requested, policies, days_since_purchase, return_window_days
+            reason, order, amount_requested, policies, days_since_purchase, return_window_days, history
         )
 
     def propose_refund_decision(
@@ -450,10 +464,11 @@ class OllamaLLM(BaseLLM):
         policies: List[Dict[str, Any]],
         days_since_purchase: int,
         return_window_days: int,
+        history: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         policy_ids = [p["id"] for p in policies]
         messages = self.build_prompt(
-            reason, order, amount_requested, policies, days_since_purchase, return_window_days
+            reason, order, amount_requested, policies, days_since_purchase, return_window_days, history
         )
 
         payload = {
@@ -475,7 +490,7 @@ class OllamaLLM(BaseLLM):
             logger.warning(f"Ollama Qwen evaluation failed ({e}).")
             if config.OLLAMA_FALLBACK_TO_MOCK:
                 return mock_fallback(
-                    e, reason, order, amount_requested, policies, days_since_purchase, return_window_days
+                    e, reason, order, amount_requested, policies, days_since_purchase, return_window_days, history
                 )
             raise
 
@@ -580,10 +595,11 @@ class GeminiLLM(BaseLLM):
         policies: List[Dict[str, Any]],
         days_since_purchase: int,
         return_window_days: int,
+        history: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         policy_ids = [p["id"] for p in policies]
         messages = build_messages(
-            reason, order, amount_requested, policies, days_since_purchase, return_window_days
+            reason, order, amount_requested, policies, days_since_purchase, return_window_days, history
         )
 
         try:
@@ -596,7 +612,7 @@ class GeminiLLM(BaseLLM):
             logger.warning(f"Gemini evaluation failed ({e}).")
             if config.GEMINI_FALLBACK_TO_MOCK:
                 return mock_fallback(
-                    e, reason, order, amount_requested, policies, days_since_purchase, return_window_days
+                    e, reason, order, amount_requested, policies, days_since_purchase, return_window_days, history
                 )
             raise
 

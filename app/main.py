@@ -248,6 +248,19 @@ def my_orders(who: Identity = Depends(require("customer")), conn=Depends(db)):
     return _rows(conn, "SELECT * FROM orders WHERE customer_id = ? ORDER BY id", who.user_id)
 
 
+@app.get("/me/records/search")
+def my_records_search(q: str, who: Identity = Depends(require("customer")), conn=Depends(db)):
+    """Semantic search over the caller's own profile, expenses and cases (records RAG).
+
+    Goes through the RecordsAgent tool, so the guardrail checks and audit-logs it.
+    """
+    try:
+        return tools.call_tool(conn, "RecordsAgent", "records.search_records",
+                               {"customer_id": who.user_id, "query": q[:500]}, who.user_id)
+    except GuardrailViolation as v:
+        raise HTTPException(403, v.decision.reason)
+
+
 @app.get("/me/cases")
 def my_cases(who: Identity = Depends(require("customer")), conn=Depends(db)):
     return _rows(conn, "SELECT * FROM cases WHERE customer_id = ? ORDER BY created_at DESC", who.user_id)

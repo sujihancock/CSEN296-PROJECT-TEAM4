@@ -10,7 +10,7 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
-from app import config, guardrails, tools
+from app import config, guardrails, records_store, tools
 from app.audit import log_event
 from app.db import parse_ts
 from app.guardrails import GuardrailViolation
@@ -80,6 +80,10 @@ class RecordsAgent(Specialist):
     def history(self) -> List[Dict[str, Any]]:
         return self.call("records.get_case_history", customer_id=self.session)
 
+    def search(self, query: str) -> List[Dict[str, Any]]:
+        """Records RAG: the beneficiary's own profile, expenses and cases, closest to `query` first."""
+        return self.call("records.search_records", customer_id=self.session, query=query)
+
 
 class EmailAgent(Specialist):
     name = "EmailAgent"
@@ -109,7 +113,8 @@ class RefundsAgent(Specialist):
         self.llm = llm or get_llm()
         self.events = events or EventSink()
 
-    def evaluate(self, case: Dict[str, Any], order: Dict[str, Any], reason: str) -> Dict[str, Any]:
+    def evaluate(self, case: Dict[str, Any], order: Dict[str, Any], reason: str,
+                 history: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
         case_id = case["case_id"]
         self.call("cases.update_status", case_id=case_id, status="UNDER_REVIEW", decision_reason="")
         ev = self.events
@@ -125,7 +130,7 @@ class RefundsAgent(Specialist):
                 model=model)
         t0 = time.perf_counter()
         proposal = self.llm.propose_refund_decision(
-            reason, order, case["amount_requested"], policies, days, config.RETURN_WINDOW_DAYS)
+            reason, order, case["amount_requested"], policies, days, config.RETURN_WINDOW_DAYS, history)
         secs = round(time.perf_counter() - t0, 2)
         approve = proposal["action"] == "APPROVE"
         ev.emit("llm", "bad" if proposal.get("followed_embedded_instructions") else "ok" if approve else "warn",
@@ -324,17 +329,21 @@ class Orchestrator:
             ev.emit("records", "running", agent.name, f"Verifying {order_id} and building the eligibility profile.")
             order = agent.order(order_id)
             prior = [h for h in agent.history() if h.get("id") != ctx["case"]["case_id"]]
-            ctx["order"] = order
+            # Records RAG: the closest of this beneficiary's past claims, as structured facts only.
+            hits = agent.search(f"{order['product_name']} {order['category']} {reason}"[:500])
+            related = records_store.history_for_prompt(hits, exclude_case=ctx["case"]["case_id"])
+            ctx["order"], ctx["related_claims"] = order, related
             step(agent.name, f"Verified expense {order_id} and built the eligibility profile for {customer_id}: "
-                             f"{len(prior)} prior claim(s) on file.")
+                             f"{len(prior)} prior claim(s) on file, {len(related)} related by records search.")
             ev.emit("records", "ok", agent.name,
                     f"Verified {order_id} ({order['product_name']}, ${order['amount']:.2f}); "
-                    f"{customer_id} has {len(prior)} prior claim(s) on file.",
-                    order=order, prior_claims=len(prior))
+                    f"{customer_id} has {len(prior)} prior claim(s) on file, {len(related)} related.",
+                    order=order, prior_claims=len(prior), related_claims=related)
             ev_done.add("records")
 
         def evaluate(agent: RefundsAgent) -> None:
-            outcome = agent.evaluate(ctx["case"], ctx["order"], reason)
+            outcome = agent.evaluate(ctx["case"], ctx["order"], reason, ctx.get("related_claims"))
+            outcome["related_claims"] = ctx.get("related_claims", [])
             ctx["outcome"] = outcome
             step(agent.name, f"LLM proposed {outcome['llm_proposal']['action']} "
                              f"${outcome['llm_proposal']['amount']:.2f}; final status {outcome['status']}.")

@@ -165,6 +165,17 @@ function updateStep(id, r) {
 const fmtSecs = (x) => x < 10 ? `${x.toFixed(1)}s` : `${Math.round(x)}s`;
 
 // ---------------------------------------------------------------- Step detail builders (live and final)
+// Related past claims from the records search (records RAG). Structured facts only.
+function relatedDetail(claims) {
+  if (!claims || !claims.length) return null;
+  return el("div", {},
+    el("p", { class: "sb-note" }, "Related past claims found by records search (passed to the model as facts only):"),
+    el("ul", { class: "sb-policies" }, claims.map(c => el("li", {},
+      el("span", { class: "pg-policy-id" }, c.case_id),
+      el("span", { class: "sb-pol-title" }, `${c.service} · ${money(c.amount)} · ${String(c.status || "").toLowerCase()}`),
+      c.days_ago != null ? el("span", { class: "sb-pol-score" }, `${c.days_ago}d ago`) : null))));
+}
+
 function policiesDetail(pols) {
   return el("ul", { class: "sb-policies" }, pols.map(p => el("li", {},
     el("span", { class: "pg-policy-id" }, p.id),
@@ -193,7 +204,7 @@ function eventResult(e) {
   if (e.state === "skip") return { state: "skip", tag: "Skipped", text: e.message };
   switch (e.step) {
     case "intake": return { state: e.state, tag: d.case_id || "Opened", text: e.message };
-    case "records": return { state: e.state, tag: "Owner verified", text: e.message };
+    case "records": return { state: e.state, tag: "Owner verified", text: e.message, detail: relatedDetail(d.related_claims) };
     case "rag": return (d.policies || []).length
       ? { state: e.state, tag: `${d.policies.length} found`, text: "Policies passed to the model as context:", detail: policiesDetail(d.policies) }
       : { state: "warn", tag: "None", text: "No matching policy, so the model had nothing to cite." };
@@ -227,7 +238,7 @@ function stepResults(r) {
     : { state: "bad", tag: "No case", text: "Stopped before a case was opened." };
 
   out.records = r.order
-    ? { state: "ok", tag: "Owner verified", text: `${r.order.id}, ${r.order.product_name}, ${money(r.order.amount)}, service on ${r.order.purchase_date.slice(0, 10)}.` }
+    ? { state: "ok", tag: "Owner verified", text: `${r.order.id}, ${r.order.product_name}, ${money(r.order.amount)}, service on ${r.order.purchase_date.slice(0, 10)}.`, detail: relatedDetail(r.related_claims) }
     : { state: revoked ? "skip" : "bad", tag: revoked ? "Skipped" : "Not verified", text: revoked ? "Not reached." : "The expense could not be matched to this beneficiary." };
 
   const pols = r.retrieved_policies || [];

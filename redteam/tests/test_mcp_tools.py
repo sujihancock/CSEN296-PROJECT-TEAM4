@@ -12,6 +12,7 @@ EXPECTED_TOOLS = {
     "records.get_customer": records,
     "records.get_order": records,
     "records.get_case_history": records,
+    "records.search_records": records,
     "policy.search": refunds,
     "cases.update_status": refunds,
     "bank.disburse": refunds,
