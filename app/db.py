@@ -10,7 +10,7 @@ TS_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 # Drop order respects foreign keys.
 TABLES = [
-    "audit_logs", "disbursements", "emails", "cases",
+    "audit_logs", "disbursements", "beneficiary_messages", "emails", "cases",
     "orders", "customers", "policies", "system_settings",
 ]
 
@@ -63,7 +63,23 @@ CREATE TABLE IF NOT EXISTS emails (
     subject TEXT NOT NULL,
     body TEXT NOT NULL,
     email_type TEXT NOT NULL,            -- ACKNOWLEDGEMENT, DECISION
-    sent_at TEXT NOT NULL
+    sent_at TEXT NOT NULL,
+    read_at TEXT                         -- set when the beneficiary opens it in Mail
+);
+
+-- Mail a beneficiary writes to the benefits office from the Mail tab. Staff read
+-- these on the Supervisor page; the agent pipeline never reads them.
+CREATE TABLE IF NOT EXISTS beneficiary_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id TEXT NOT NULL REFERENCES customers(id),
+    case_id TEXT,                        -- the claim it is about, if any (must belong to the sender)
+    in_reply_to INTEGER,                 -- emails.id it answers, if any (must belong to the sender)
+    subject TEXT NOT NULL,
+    body TEXT NOT NULL,
+    sent_at TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'OPEN', -- OPEN, HANDLED
+    handled_by TEXT,
+    handled_at TEXT
 );
 
 -- Ledger written only by the guardrail layer. Caps are computed from here.
@@ -129,11 +145,19 @@ def init_db(seed: bool = True, drop_existing: bool = False, path: Optional[Path]
             except Exception:
                 pass
         conn.executescript(SCHEMA)
+        _migrate(conn)
         if seed:
             _seed(conn)
         conn.commit()
     finally:
         conn.close()
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Add columns introduced after a database was first created."""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(emails)").fetchall()}
+    if "read_at" not in cols:
+        conn.execute("ALTER TABLE emails ADD COLUMN read_at TEXT")
 
 
 def _seed(conn: sqlite3.Connection) -> None:

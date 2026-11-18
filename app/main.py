@@ -23,7 +23,7 @@ from pydantic import BaseModel, Field
 
 from app import audit, config, guardrails, redteam, tools
 from app.agent import Orchestrator
-from app.db import get_connection, init_db
+from app.db import get_connection, init_db, now_ts
 from app.guardrails import GuardrailViolation
 from app.retriever import Retriever
 
@@ -95,7 +95,7 @@ if (STATIC_DIR / "js").exists():
 # nav link is marked. Persona-based page locking would hook in at page().
 # --------------------------------------------------------------------------
 
-PAGES = ("overview", "sandbox", "customer", "supervisor", "vector-policies", "audit")
+PAGES = ("overview", "sandbox", "customer", "mail", "supervisor", "vector-policies", "audit")
 NO_CACHE = {"Cache-Control": "no-cache, no-store, must-revalidate"}
 
 
@@ -257,6 +257,133 @@ def my_cases(who: Identity = Depends(require("customer")), conn=Depends(db)):
 def my_emails(who: Identity = Depends(require("customer")), conn=Depends(db)):
     return _rows(conn, "SELECT e.* FROM emails e JOIN customers c ON c.email = e.to_email "
                        "WHERE c.id = ? ORDER BY e.id DESC", who.user_id)
+
+
+# --------------------------------------------------------------------------
+# Beneficiary Mail (the Mail tab). Beneficiaries only: they read what the
+# agents emailed them and write to the benefits office. Their messages go to a
+# staff queue on the Supervisor page and are never passed to the agent or LLM.
+# --------------------------------------------------------------------------
+
+MAIL_SUBJECT_MAX = 200
+MAIL_BODY_MAX = 5000
+
+
+def _my_email(conn, who: Identity) -> str:
+    row = conn.execute("SELECT email FROM customers WHERE id = ?", (who.user_id,)).fetchone()
+    if not row:
+        raise HTTPException(403, "No beneficiary record for this key")
+    return row["email"]
+
+
+def _mail_item(row) -> Dict[str, Any]:
+    from app.email_api import email_service
+    d = dict(row)
+    return {**d, "from": email_service.sender, "unread": d.get("read_at") is None}
+
+
+@app.get("/me/mail")
+def my_mail(folder: str = "inbox", case_id: Optional[str] = None,
+            who: Identity = Depends(require("customer")), conn=Depends(db)):
+    """Inbox (what the agents and supervisors emailed you) or Sent (what you wrote to the office)."""
+    if folder == "sent":
+        from app.email_api import BENEFITS_OFFICE
+        sql = "SELECT * FROM beneficiary_messages WHERE customer_id = ?"
+        args: list = [who.user_id]
+        if case_id:
+            sql += " AND case_id = ?"
+            args.append(case_id)
+        rows = _rows(conn, sql + " ORDER BY id DESC", *args)
+        return [{**r, "to": BENEFITS_OFFICE} for r in rows]
+    if folder != "inbox":
+        raise HTTPException(422, "folder must be 'inbox' or 'sent'")
+    sql = "SELECT * FROM emails WHERE to_email = ?"
+    args = [_my_email(conn, who)]
+    if case_id:
+        sql += " AND case_id = ?"
+        args.append(case_id)
+    return [_mail_item(r) for r in conn.execute(sql + " ORDER BY id DESC", args).fetchall()]
+
+
+@app.get("/me/mail/unread")
+def my_unread(who: Identity = Depends(require("customer")), conn=Depends(db)):
+    n = conn.execute("SELECT COUNT(*) FROM emails WHERE to_email = ? AND read_at IS NULL",
+                     (_my_email(conn, who),)).fetchone()[0]
+    return {"unread": n}
+
+
+def _own_email(conn, who: Identity, email_id: int):
+    row = conn.execute("SELECT * FROM emails WHERE id = ? AND to_email = ?",
+                       (email_id, _my_email(conn, who))).fetchone()
+    if not row:  # other beneficiaries' mail looks exactly like mail that doesn't exist
+        raise HTTPException(404, "Message not found")
+    return row
+
+
+@app.post("/me/mail/{email_id}/read")
+def mark_mail_read(email_id: int, who: Identity = Depends(require("customer")), conn=Depends(db)):
+    row = _own_email(conn, who, email_id)
+    if row["read_at"] is None:
+        conn.execute("UPDATE emails SET read_at = ? WHERE id = ?", (now_ts(), email_id))
+        conn.commit()
+    return _mail_item(conn.execute("SELECT * FROM emails WHERE id = ?", (email_id,)).fetchone())
+
+
+class MailSendRequest(BaseModel):
+    subject: str = Field(min_length=1, max_length=MAIL_SUBJECT_MAX)
+    body: str = Field(min_length=1, max_length=MAIL_BODY_MAX)
+    case_id: Optional[str] = None
+    in_reply_to: Optional[int] = None
+
+
+@app.post("/me/mail/send")
+def send_mail_to_office(req: MailSendRequest, who: Identity = Depends(require("customer")), conn=Depends(db)):
+    """Write to the benefits office. Always goes to the office: there is no recipient field."""
+    subject, body = req.subject.strip(), req.body.strip()
+    if not subject or not body:
+        raise HTTPException(422, "Subject and message can't be blank")
+    case_id = req.case_id or None
+    if req.in_reply_to is not None:
+        original = _own_email(conn, who, req.in_reply_to)
+        case_id = case_id or original["case_id"]
+    if case_id:
+        owner = conn.execute("SELECT customer_id FROM cases WHERE id = ?", (case_id,)).fetchone()
+        if not owner or owner["customer_id"] != who.user_id:
+            audit.log_event(conn, who.user_id, "MAIL_CASE_MISMATCH", "BLOCKED", {"case_id": case_id})
+            raise HTTPException(403, "You can only write about your own claims")
+    cur = conn.execute(
+        "INSERT INTO beneficiary_messages (customer_id, case_id, in_reply_to, subject, body, sent_at) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (who.user_id, case_id, req.in_reply_to, subject, body, now_ts()),
+    )
+    conn.commit()
+    msg_id = cur.lastrowid
+    audit.log_event(conn, who.user_id, "BENEFICIARY_MESSAGE", "INFO",
+                    {"message_id": msg_id, "case_id": case_id, "in_reply_to": req.in_reply_to}, case_id)
+    from app.email_api import BENEFITS_OFFICE
+    return {**dict(conn.execute("SELECT * FROM beneficiary_messages WHERE id = ?", (msg_id,)).fetchone()),
+            "to": BENEFITS_OFFICE}
+
+
+@app.get("/supervisor/messages")
+def office_messages(status: Optional[str] = None, _who=Depends(require("supervisor")), conn=Depends(db)):
+    """Staff queue of messages beneficiaries sent from Mail."""
+    sql = ("SELECT m.*, c.name AS beneficiary_name, c.email AS beneficiary_email FROM beneficiary_messages m "
+           "JOIN customers c ON c.id = m.customer_id")
+    if status:
+        return _rows(conn, sql + " WHERE m.status = ? ORDER BY m.id DESC", status)
+    return _rows(conn, sql + " ORDER BY m.id DESC")
+
+
+@app.post("/supervisor/messages/{message_id}/handled")
+def handle_office_message(message_id: int, who: Identity = Depends(require("supervisor")), conn=Depends(db)):
+    if not conn.execute("SELECT 1 FROM beneficiary_messages WHERE id = ?", (message_id,)).fetchone():
+        raise HTTPException(404, "Message not found")
+    conn.execute("UPDATE beneficiary_messages SET status = 'HANDLED', handled_by = ?, handled_at = ? WHERE id = ?",
+                 (who.user_id, now_ts(), message_id))
+    conn.commit()
+    audit.log_event(conn, who.user_id, "BENEFICIARY_MESSAGE_HANDLED", "INFO", {"message_id": message_id})
+    return {"id": message_id, "status": "HANDLED"}
 
 
 # --------------------------------------------------------------------------

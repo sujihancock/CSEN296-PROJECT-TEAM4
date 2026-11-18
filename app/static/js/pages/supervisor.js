@@ -344,7 +344,42 @@ $("rtRunAll").addEventListener("click", async () => {
   }
 });
 
-document.addEventListener("persona-change", () => { rtTests = null; loadSupervisor(); });
-$("suRefresh").addEventListener("click", (ev) => busy(ev.currentTarget, loadSupervisor));
+// ---------------------------------------------------------------- Messages from beneficiaries (Mail tab)
+async function loadMessages() {
+  if (persona()?.role !== "supervisor") {
+    $("suMsgNote").textContent = "—";
+    fill("suMessages", el("li", { class: "ov-empty" }, "Only supervisors can read beneficiary messages."));
+    return;
+  }
+  let msgs;
+  try { msgs = await api("GET", "/supervisor/messages"); } catch (e) {
+    fill("suMessages", el("li", {}, el("p", { class: "ov-error" }, e.message)));
+    return;
+  }
+  const open = msgs.filter(m => m.status === "OPEN");
+  $("suMsgNote").textContent = msgs.length ? `${open.length} open · ${msgs.length} total` : "None yet";
+  if (!msgs.length) { fill("suMessages", el("li", { class: "ov-empty" }, "No beneficiary has written in.")); return; }
+  // Open messages first, newest first within each group.
+  const ordered = [...open, ...msgs.filter(m => m.status !== "OPEN")].slice(0, 12);
+  fill("suMessages", ordered.map(m => {
+    const done = el("button", { type: "button", class: "btn btn-sm btn-secondary" }, "Mark handled");
+    done.addEventListener("click", () => busy(done, async () => {
+      await api("POST", `/supervisor/messages/${m.id}/handled`);
+      toast(`Message from <b>${m.beneficiary_name.replace(/[<>&]/g, "")}</b> marked handled.`);
+      await loadMessages();
+    }));
+    return el("li", { class: "pg-list-item" },
+      el("div", { class: "pg-list-main" },
+        el("span", { class: "pg-list-title", title: m.subject }, m.subject),
+        el("span", { class: "pg-list-meta" }, m.beneficiary_name, " · ", el("span", { class: "font-mono" }, m.customer_id),
+          m.case_id ? [" · ", el("span", { class: "font-mono" }, m.case_id)] : null, " · ", timeEl(m.sent_at)),
+        el("p", { class: "su-msg-body" }, m.body)),
+      el("div", { class: "pg-list-side" }, m.status === "OPEN" ? done : badge("HANDLED")));
+  }));
+}
+
+document.addEventListener("persona-change", () => { rtTests = null; loadSupervisor(); loadMessages(); });
+$("suRefresh").addEventListener("click", (ev) => busy(ev.currentTarget, () => Promise.all([loadSupervisor(), loadMessages()])));
 
 loadSupervisor();
+loadMessages();

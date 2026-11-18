@@ -172,7 +172,8 @@ function emailTone(e) {
 function renderCuInbox(emails) {
   if (!emails.ok) { fill("inbox", el("li", {}, el("p", { class: "ov-error" }, emails.e.message))); $("cuInboxNote").textContent = "—"; return; }
   const list = emails.v;
-  $("cuInboxNote").textContent = list.length ? `${list.length} ${list.length === 1 ? "message" : "messages"}` : "Empty";
+  const unread = list.filter(e => !e.read_at).length;
+  $("cuInboxNote").textContent = list.length ? `${list.length} ${list.length === 1 ? "message" : "messages"}${unread ? ` · ${unread} unread` : ""}` : "Empty";
   if (!list.length) {
     fill("inbox", el("li", { class: "ov-empty" }, "No email yet. You get one when a claim is received and another when it's decided."));
     return;
@@ -180,7 +181,7 @@ function renderCuInbox(emails) {
   fill("inbox", list.slice(0, 8).map(e => el("li", { class: "ov-feed-item" },
     el("span", { class: `ov-feed-mark ${emailTone(e)}`, "aria-hidden": "true" }),
     el("div", { class: "pg-mail" },
-      el("div", { class: "ov-feed-title" }, e.subject),
+      el("a", { class: "ov-feed-title", href: `/mail?case=${encodeURIComponent(e.case_id)}` }, e.subject),
       el("p", { class: "pg-mail-body" }, e.body),
       el("div", { class: "ov-feed-meta" },
         e.email_type === "DECISION" ? "Decision" : "Receipt", " · ", el("span", { class: "font-mono" }, e.case_id))),

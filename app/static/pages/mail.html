@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mail · ChangSupport.AI</title>
+  <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+
+<!-- @header -->
+
+<main class="app-main">
+  <div id="view-mail" class="ov">
+    <div class="ov-head">
+      <div class="ov-head-title">
+        <h1>Mail</h1>
+        <p class="ov-head-meta">
+          <span>Messages between you and the benefits office</span>
+          <span class="ov-sep" aria-hidden="true"></span>
+          <span id="mlUpdated" aria-live="polite">Loading…</span>
+        </p>
+      </div>
+      <div class="pg-head-actions">
+        <button type="button" class="btn btn-sm btn-secondary" id="mlRefresh">Refresh</button>
+        <button type="button" class="btn btn-sm btn-primary" id="mlCompose">Write to the office</button>
+      </div>
+    </div>
+
+    <div id="mlRoleNote" class="pg-role-note" hidden></div>
+
+    <div class="ml-grid">
+      <section class="ov-panel ml-list-panel" aria-labelledby="mlListTitle">
+        <header class="ov-panel-head ml-list-head">
+          <h2 id="mlListTitle" class="visually-hidden">Messages</h2>
+          <div class="ml-folders" role="tablist" aria-label="Folders">
+            <button type="button" role="tab" class="ml-folder" data-folder="inbox" aria-selected="true">Inbox <span id="mlInboxCount" class="ml-count"></span></button>
+            <button type="button" role="tab" class="ml-folder" data-folder="sent" aria-selected="false">Sent</button>
+          </div>
+          <label class="ml-filter">
+            <span class="visually-hidden">Filter by claim</span>
+            <select id="mlCaseFilter" class="header-select"><option value="">All claims</option></select>
+          </label>
+        </header>
+        <ul id="mlList" class="ml-list" aria-live="polite"><li><span class="ov-skel ov-skel--block"></span></li></ul>
+      </section>
+
+      <section class="ov-panel ml-reader" aria-labelledby="mlReaderTitle" id="mlReader">
+        <div class="ov-empty" id="mlReaderEmpty">
+          <p id="mlReaderTitle">Pick a message to read it.</p>
+          <p>You get an email when a claim is received and another when it's decided. Questions about a claim? Write to the office.</p>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<!-- Accessible Live Toast -->
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="/static/js/core.js" defer></script>
+<script src="/static/js/pages/mail.js" defer></script>
+</body>
+</html>

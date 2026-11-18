@@ -15,6 +15,7 @@ from app.audit import log_event
 from app.db import parse_ts
 from app.guardrails import GuardrailViolation
 from app.llm import BaseLLM, MockLLM, get_llm
+from app.orchestration import CANONICAL_PLAN, validate_plan, validate_routes, validate_summary
 
 logger = logging.getLogger(__name__)
 
@@ -172,23 +173,23 @@ class ReportingAgent(Specialist):
 
 
 class Orchestrator:
-    """Core agent: plan -> route to specialists -> aggregate."""
+    """Core agent: plan -> route to specialists -> aggregate.
 
-    REFUND_PLAN = [
-        "intake:create_case",
-        "email:send_acknowledgement",
-        "records:validate_customer_and_order",
-        "refunds:evaluate_and_process",
-        "email:send_decision",
-        "reporting:record_decision",
-    ]
+    The LLM proposes the plan, the routes and the final reply (spec 3.2:
+    task decomposition, agent routing, response aggregation). The checks in
+    app/orchestration.py decide what actually runs, so a hijacked plan or route
+    is logged and corrected instead of executed.
+    """
+
+    REFUND_PLAN = CANONICAL_PLAN
 
     def __init__(self, llm: Optional[BaseLLM] = None):
         self.llm = llm or get_llm()
 
     def plan(self, task: str, data: Dict[str, Any]) -> List[str]:
+        """Validate the task type and return the steps it can use (no LLM call)."""
         if task == "refund_request":
-            return list(self.REFUND_PLAN)
+            return list(CANONICAL_PLAN)
         raise ValueError(f"Unknown task {task!r}")
 
     def handle_task(self, conn: sqlite3.Connection, task: str, data: Dict[str, Any], session_customer_id: str,
@@ -198,13 +199,67 @@ class Orchestrator:
             conn, session_customer_id, data["order_id"], float(data["amount"]), str(data.get("reason", "")),
             on_event=on_event)
 
+    # ------------------------------------------------------------- LLM tools
+
+    def decompose_and_route(self, conn: sqlite3.Connection, customer_id: str,
+                            request: Dict[str, Any]) -> Dict[str, Any]:
+        """Ask the LLM for sub-tasks and routes, then keep only what the catalog allows."""
+        proposed = self.llm.decompose_task("refund_request", request)
+        plan_check = validate_plan(proposed.get("steps"))
+        steps = proposed.get("steps") if isinstance(proposed.get("steps"), list) else []
+        routed = self.llm.route_subtasks(steps)
+        route_check = validate_routes(plan_check.accepted, routed.get("routes"))
+        rejections = plan_check.rejected + route_check.rejected
+        followed = bool(proposed.get("followed_embedded_instructions") or routed.get("followed_embedded_instructions"))
+
+        log_event(conn, "Orchestrator", "ORCHESTRATOR_PLAN", guardrails.ALLOWED, {
+            "customer_id": customer_id, "order_id": request["order_id"],
+            "proposed_steps": [s.get("step") if isinstance(s, dict) else s for s in steps],
+            "proposed_routes": routed.get("routes"),
+            "plan": plan_check.accepted, "routes": route_check.accepted,
+            "model": proposed.get("model_used"),
+        })
+        for r in rejections:
+            log_event(conn, "Orchestrator", r["code"], guardrails.BLOCKED,
+                      {**r, "customer_id": customer_id, "order_id": request["order_id"]})
+        return {
+            "plan": plan_check.accepted,
+            "routes": route_check.accepted,
+            "proposed_steps": steps,
+            "proposed_routes": routed.get("routes"),
+            "rejections": rejections,
+            "followed_embedded_instructions": followed,
+            "model_used": proposed.get("model_used"),
+            "fallback_triggered": bool(proposed.get("fallback_triggered") or routed.get("fallback_triggered")),
+        }
+
+    def aggregate(self, conn: sqlite3.Connection, request: Dict[str, Any],
+                  outcome: Dict[str, Any]) -> Dict[str, Any]:
+        """Ask the LLM to write the reply, falling back to a template if it misstates the outcome."""
+        facts = {"case_id": outcome.get("case_id"), "status": outcome.get("status"),
+                 "reason": outcome.get("reason", ""), "amount_requested": request["amount"],
+                 "refunded_amount": outcome.get("refunded_amount", 0.0)}
+        proposed = self.llm.aggregate_results(request, facts)
+        check = validate_summary(proposed.get("summary"), facts)
+        for r in check.rejected:
+            log_event(conn, "Orchestrator", r["code"], guardrails.BLOCKED,
+                      {**r, "proposed_summary": str(proposed.get("summary"))[:300]}, outcome.get("case_id"))
+        return {"summary": check.accepted, "proposed_summary": proposed.get("summary"),
+                "rejections": check.rejected, "model_used": proposed.get("model_used"),
+                "followed_embedded_instructions": bool(proposed.get("followed_embedded_instructions"))}
+
+    # ------------------------------------------------------------- workflow
+
     def process_refund_request(self, conn: sqlite3.Connection, customer_id: str, order_id: str,
                                amount: float, reason: str,
                                on_event: Optional[EventListener] = None) -> Dict[str, Any]:
         """Run one claim. `on_event`, if given, receives live step events (see EventSink)."""
         trace: List[Dict[str, str]] = []
         ev = EventSink(on_event)
-        later_steps = ("intake", "records", "rag", "llm", "pay")
+        later_steps = ("plan", "intake", "records", "rag", "llm", "pay", "summary")
+        ev_done: set = set()
+        request = {"order_id": order_id, "amount": amount, "reason": reason}
+        model = model_label(self.llm)
 
         def revoked(case_id: Optional[str] = None) -> Dict[str, Any]:
             ev.emit("guard", "bad", "PolicyGuardrail", "Kill switch is on: agent authority revoked, failing closed.",
@@ -213,87 +268,145 @@ class Orchestrator:
                 if s not in ev_done:
                     ev.emit(s, "skip", "PolicyGuardrail", "Not reached.")
             return self._revoked(trace, case_id)
-        ev_done: set = set()
 
         def step(agent: str, message: str) -> None:
             trace.append({"agent": agent, "message": message})
 
-        step("Orchestrator", f"Plan: {', '.join(self.REFUND_PLAN)}")
         if guardrails.is_kill_switch_active(conn):
+            step("Orchestrator", "Kill switch is on; not planning.")
             log_event(conn, "Orchestrator", "AGENT_EXECUTION_BLOCKED", guardrails.BLOCKED,
                       {"reason": "kill switch active", "customer_id": customer_id})
             return revoked()
 
-        intake = IntakeAgent(conn, customer_id)
-        email = EmailAgent(conn, customer_id)
-        records = RecordsAgent(conn, customer_id)
-        refunds = RefundsAgent(conn, customer_id, self.llm, ev)
-        reporting = ReportingAgent(conn, customer_id)
+        # 1. Task decomposition and agent routing (LLM, then validated).
+        ev.emit("plan", "running", "Orchestrator", f"Asking {model} to break the request into sub-tasks and route them.",
+                model=model)
+        orch = self.decompose_and_route(conn, customer_id, request)
+        plan, routes = orch["plan"], orch["routes"]
+        step("Orchestrator", f"Plan: {', '.join(plan)}")
+        step("Orchestrator", "Routes: " + ", ".join(f"{s} -> {a}" for s, a in routes.items()))
+        for r in orch["rejections"]:
+            step("Orchestrator", f"Rejected from the model's plan: {r['code']} {r.get('step') or r.get('detail', '')}".rstrip())
+        n_rej = len(orch["rejections"])
+        ev.emit("plan", "bad" if orch["followed_embedded_instructions"] else "warn" if n_rej else "ok", "Orchestrator",
+                f"{len(plan)} sub-tasks routed to {len(set(routes.values()))} specialists"
+                + (f"; {n_rej} change(s) from the model's proposal rejected." if n_rej else "."),
+                plan=plan, routes=routes, rejections=orch["rejections"],
+                followed_embedded_instructions=orch["followed_embedded_instructions"])
+        ev_done.add("plan")
 
-        case_id = None
-        try:
-            ev.emit("intake", "running", "IntakeAgent", f"Opening a case for {order_id}.")
-            case = intake.open_case(order_id, amount, reason)
-            case_id = case["case_id"]
+        specialists: Dict[str, Specialist] = {
+            "IntakeAgent": IntakeAgent(conn, customer_id),
+            "EmailAgent": EmailAgent(conn, customer_id),
+            "RecordsAgent": RecordsAgent(conn, customer_id),
+            "RefundsAgent": RefundsAgent(conn, customer_id, self.llm, ev),
+            "ReportingAgent": ReportingAgent(conn, customer_id),
+        }
+        ctx: Dict[str, Any] = {}
+
+        def create_case(agent: IntakeAgent) -> None:
+            ev.emit("intake", "running", agent.name, f"Opening a case for {order_id}.")
+            case = agent.open_case(order_id, amount, reason)
             case["amount_requested"] = amount
-            step("IntakeAgent", f"Created case {case_id}.")
+            ctx["case"] = case
+            step(agent.name, f"Created case {case['case_id']} (assigned to {case.get('assigned_to')}).")
 
-            customer = records.customer()
-            ack = email.acknowledge(case_id, customer, amount)
-            step("EmailAgent", f"Sent acknowledgement to {customer['email']}.")
-            ev.emit("intake", "ok", "IntakeAgent", f"Created case {case_id} and emailed a receipt to {customer['email']}.",
-                    case_id=case_id)
+        def send_ack(agent: EmailAgent) -> None:
+            case_id = ctx["case"]["case_id"]
+            ctx["customer"] = specialists["RecordsAgent"].customer()
+            ctx["ack"] = agent.acknowledge(case_id, ctx["customer"], amount)
+            step(agent.name, f"Sent acknowledgement to {ctx['customer']['email']}.")
+            ev.emit("intake", "ok", "IntakeAgent",
+                    f"Created case {case_id} and emailed a receipt to {ctx['customer']['email']}.", case_id=case_id)
             ev_done.add("intake")
 
-            ev.emit("records", "running", "RecordsAgent", f"Verifying {order_id} and building the eligibility profile.")
-            order = records.order(order_id)
-            history = records.history()
-            prior = [h for h in history if h.get("id") != case_id]
-            step("RecordsAgent", f"Verified expense {order_id} and built the eligibility profile for {customer_id}: "
-                                 f"{len(prior)} prior claim(s) on file.")
-            ev.emit("records", "ok", "RecordsAgent",
+        def validate_records(agent: RecordsAgent) -> None:
+            ev.emit("records", "running", agent.name, f"Verifying {order_id} and building the eligibility profile.")
+            order = agent.order(order_id)
+            prior = [h for h in agent.history() if h.get("id") != ctx["case"]["case_id"]]
+            ctx["order"] = order
+            step(agent.name, f"Verified expense {order_id} and built the eligibility profile for {customer_id}: "
+                             f"{len(prior)} prior claim(s) on file.")
+            ev.emit("records", "ok", agent.name,
                     f"Verified {order_id} ({order['product_name']}, ${order['amount']:.2f}); "
                     f"{customer_id} has {len(prior)} prior claim(s) on file.",
                     order=order, prior_claims=len(prior))
             ev_done.add("records")
 
-            outcome = refunds.evaluate(case, order, reason)
-            step("RefundsAgent", f"LLM proposed {outcome['llm_proposal']['action']} "
-                                 f"${outcome['llm_proposal']['amount']:.2f}; final status {outcome['status']}.")
+        def evaluate(agent: RefundsAgent) -> None:
+            outcome = agent.evaluate(ctx["case"], ctx["order"], reason)
+            ctx["outcome"] = outcome
+            step(agent.name, f"LLM proposed {outcome['llm_proposal']['action']} "
+                             f"${outcome['llm_proposal']['amount']:.2f}; final status {outcome['status']}.")
 
-            ev.emit("pay", "running", "EmailAgent", "Sending the decision email.")
-            dec_email = email.notify_decision(case_id, customer, outcome["status"], outcome["reason"])
-            step("EmailAgent", "Sent decision notification.")
+        def send_decision(agent: EmailAgent) -> None:
+            ev.emit("pay", "running", agent.name, "Sending the decision email.")
+            o = ctx["outcome"]
+            ctx["decision_email"] = agent.notify_decision(ctx["case"]["case_id"], ctx["customer"], o["status"], o["reason"])
+            step(agent.name, "Sent decision notification.")
 
-            reporting.record(case_id, outcome["status"], outcome["reason"])
-            step("ReportingAgent", "Recorded decision in the audit trail.")
-            st = outcome["status"]
+        def record(agent: ReportingAgent) -> None:
+            o = ctx["outcome"]
+            agent.record(ctx["case"]["case_id"], o["status"], o["reason"])
+            step(agent.name, "Recorded decision in the audit trail.")
+            st = o["status"]
             ev.emit("pay", "ok" if st == "APPROVED" else "warn" if st == "ESCALATED" else "bad", "EmailAgent",
-                    f"Paid ${outcome['refunded_amount']:.2f}; decision emailed and recorded." if st == "APPROVED"
+                    f"Paid ${o['refunded_amount']:.2f}; decision emailed and recorded." if st == "APPROVED"
                     else "Nothing paid until a supervisor decides; beneficiary told it is under review."
                     if st == "ESCALATED" else "Nothing paid; decision emailed and recorded.",
-                    status=st, paid=outcome["refunded_amount"], new_balance=outcome.get("new_bank_balance"))
+                    status=st, paid=o["refunded_amount"], new_balance=o.get("new_bank_balance"))
+            ev_done.add("pay")
 
-            return {
+        handlers: Dict[str, Callable[[Any], None]] = {
+            "intake:create_case": create_case,
+            "email:send_acknowledgement": send_ack,
+            "records:validate_customer_and_order": validate_records,
+            "refunds:evaluate_and_process": evaluate,
+            "email:send_decision": send_decision,
+            "reporting:record_decision": record,
+        }
+
+        try:
+            for sid in plan:
+                handlers[sid](specialists[routes[sid]])
+            case_id = ctx["case"]["case_id"]
+            result = {
                 "case_id": case_id,
                 "trace": trace,
-                "customer": customer,
-                "order": order,
-                "acknowledgement_email": ack,
-                "decision_email": dec_email,
-                **outcome,
+                "customer": ctx["customer"],
+                "order": ctx["order"],
+                "acknowledgement_email": ctx["ack"],
+                "decision_email": ctx["decision_email"],
+                **ctx["outcome"],
             }
 
         except GuardrailViolation as v:
             d = v.decision
+            case_id = (ctx.get("case") or {}).get("case_id")
             if d.code == "KILL_SWITCH_ACTIVE":
                 if case_id:
                     guardrails.mark_case(conn, case_id, "REVOKED", d.reason)
                 return revoked(case_id)
             step("PolicyGuardrail", f"Blocked: {d.reason}")
             ev.emit("guard", "bad", "PolicyGuardrail", f"{d.code}: {d.reason}", status="BLOCKED", guardrail=d.as_dict())
-            return {"case_id": case_id, "status": "BLOCKED", "reason": d.reason, "guardrail": d.as_dict(),
-                    "refunded_amount": 0.0, "trace": trace}
+            result = {"case_id": case_id, "status": "BLOCKED", "reason": d.reason, "guardrail": d.as_dict(),
+                      "refunded_amount": 0.0, "trace": trace}
+
+        # 3. Response aggregation (LLM, then checked against the real outcome).
+        ev.emit("summary", "running", "Orchestrator", f"Asking {model} to write the reply to the beneficiary.")
+        agg = self.aggregate(conn, request, result)
+        if agg["rejections"]:
+            step("Orchestrator", "Rejected the model's reply ("
+                 + ", ".join(r["code"] for r in agg["rejections"]) + "); used the template reply.")
+        else:
+            step("Orchestrator", "Wrote the reply to the beneficiary.")
+        ev.emit("summary", "bad" if agg["followed_embedded_instructions"] else "warn" if agg["rejections"] else "ok",
+                "Orchestrator",
+                "The model's reply misstated the outcome, so the template reply was used." if agg["rejections"]
+                else "Reply written.", summary=agg["summary"], rejections=agg["rejections"])
+        result["summary"] = agg["summary"]
+        result["orchestration"] = {**orch, "aggregation": agg}
+        return result
 
     @staticmethod
     def _revoked(trace: List[Dict[str, str]], case_id: Optional[str] = None) -> Dict[str, Any]:

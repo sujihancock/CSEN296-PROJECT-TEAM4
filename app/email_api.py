@@ -10,6 +10,8 @@ from typing import Any, Dict, List, Optional
 from app.db import now_ts
 
 DEFAULT_SENDER = "ChangSupport Notifications <support@changsupport.ai>"
+# Where beneficiaries' Mail messages go. Read by staff only, never by the agent.
+BENEFITS_OFFICE = "Benefits Office <benefits.office@changsupport.ai>"
 
 
 class MockEmailService:

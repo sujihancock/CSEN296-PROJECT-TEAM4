@@ -20,7 +20,7 @@ function el(tag, attrs, ...children) {
 function fill(id, ...nodes) { const elem = $(id); if (elem) elem.replaceChildren(...nodes.flat()); }
 
 const STATUS_CLASS = {
-  APPROVED: "b-ok", ALLOWED: "b-ok", DEFENDED: "b-ok", POLICY_PASSED: "b-ok",
+  APPROVED: "b-ok", ALLOWED: "b-ok", HANDLED: "b-ok", DEFENDED: "b-ok", POLICY_PASSED: "b-ok",
   ESCALATED: "b-warn", UNDER_REVIEW: "b-info", RECEIVED: "b-info", INFO: "b-info", OVERRIDDEN: "b-info",
   DENIED: "b-bad", BLOCKED: "b-bad", REVOKED: "b-bad", ATTACK_SUCCEEDED: "b-bad",
 };
@@ -147,17 +147,35 @@ if (roleSel) {
   roleSel.addEventListener("change", () => setPersona(roleSel.value, true));
 }
 
-// Beneficiaries (the customer role) only get the beneficiary portal: other workspace tabs are hidden and
-// any other page sends them to /customer. Staff personas see every tab.
+// Beneficiaries (the customer role) only get their portal and Mail: other workspace tabs are hidden and
+// any other page sends them to /customer. Staff personas see every workspace except Mail,
+// which is beneficiaries-only.
 const CUSTOMER_PAGE = "/customer";
+const BENEFICIARY_PAGES = [CUSTOMER_PAGE, "/mail"];
 function applyPersonaScope() {
   const isCustomer = persona()?.role === "customer";
   document.querySelectorAll(".nav-segmented .nav-item").forEach(a => {
-    a.hidden = isCustomer && a.getAttribute("href") !== CUSTOMER_PAGE;
+    const href = a.getAttribute("href");
+    a.hidden = isCustomer ? !BENEFICIARY_PAGES.includes(href) : href === "/mail";
   });
   const brand = document.querySelector(".brand-name");
   if (brand) brand.setAttribute("href", isCustomer ? CUSTOMER_PAGE : "/overview");
-  if (isCustomer && location.pathname !== CUSTOMER_PAGE) location.replace(CUSTOMER_PAGE);
+  if (isCustomer && !BENEFICIARY_PAGES.includes(location.pathname)) location.replace(CUSTOMER_PAGE);
+  if (!isCustomer && location.pathname === "/mail") location.replace("/overview");
+  refreshMailBadge();
+}
+
+// Unread count on the Mail tab. Pass n to set it without asking the API.
+async function refreshMailBadge(n) {
+  const badge = $("navMailBadge");
+  if (!badge) return;
+  if (persona()?.role !== "customer") { badge.hidden = true; return; }
+  if (n == null) {
+    try { n = (await api("GET", "/me/mail/unread")).unread; } catch (e) { n = 0; }
+  }
+  badge.textContent = n > 99 ? "99+" : String(n);
+  badge.hidden = !n;
+  badge.setAttribute("aria-label", `${n} unread`);
 }
 applyPersonaScope();
 document.addEventListener("persona-change", applyPersonaScope);

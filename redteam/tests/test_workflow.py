@@ -93,7 +93,7 @@ def test_ui_is_served():
         assert r.headers["location"] == "/overview"
 
         pages = {
-            "overview": "overview.js", "sandbox": "sandbox.js", "customer": "customer.js",
+            "overview": "overview.js", "sandbox": "sandbox.js", "customer": "customer.js", "mail": "mail.js",
             "supervisor": "supervisor.js", "vector-policies": "policies.js", "audit": "audit.js",
         }
         for page, script in pages.items():

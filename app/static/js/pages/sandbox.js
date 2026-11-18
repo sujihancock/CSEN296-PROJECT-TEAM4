@@ -91,13 +91,42 @@ async function applyPreset(name) {
 
 // ---------------------------------------------------------------- Running a claim
 const STEPS = [
+  { id: "plan", name: "Orchestrator plan", does: "The model breaks the claim into sub-tasks and routes each to a specialist; the catalog check removes anything else" },
   { id: "intake", name: "Intake agent", does: "Opens a case for the claim" },
   { id: "records", name: "Records agent", does: "Checks the expense belongs to this beneficiary and builds their eligibility profile" },
   { id: "rag", name: "Policy search", does: "Finds the benefits program policies that apply (ChromaDB)" },
   { id: "llm", name: "Eligibility agent", does: "The model decides entitlement and the eligible amount" },
   { id: "guard", name: "Guardrails", does: "Caps, ownership and the kill switch, outside the model" },
   { id: "pay", name: "Payout and email", does: "Pays the reimbursement if allowed, then emails the beneficiary" },
+  { id: "summary", name: "Reply", does: "The model writes the reply; it is replaced if it misstates the outcome" },
 ];
+
+function planResult(p) {
+  const rej = p.rejections || [];
+  const routes = p.routes || {};
+  return {
+    state: p.followed_embedded_instructions ? "bad" : rej.length ? "warn" : "ok",
+    tag: rej.length ? `${rej.length} rejected` : `${(p.plan || []).length} sub-tasks`,
+    text: rej.length
+      ? "The model's plan was corrected before anything ran."
+      : "Sub-tasks and routes accepted as proposed.",
+    detail: el("div", {},
+      el("ol", { class: "sb-note" }, (p.plan || []).map(s => el("li", {}, el("code", {}, s), ` → ${routes[s] || "?"}`))),
+      rej.length ? el("ul", { class: "sb-flag" }, rej.map(r => el("li", {},
+        el("code", {}, r.code), ` ${r.step || r.proposed_agent || r.detail || ""}`))) : null),
+  };
+}
+
+function summaryResult(text, rejections, followed) {
+  const rej = rejections || [];
+  return {
+    state: followed ? "bad" : rej.length ? "warn" : "ok",
+    tag: rej.length ? "Replaced" : "Written",
+    text: text || "No reply.",
+    detail: rej.length ? el("p", { class: "sb-flag" }, "The model's reply was rejected (",
+      rej.map(r => r.code).join(", "), "), so the template reply was sent instead.") : null,
+  };
+}
 
 // Live run state: when each step started running and how long it took.
 const live = { started: 0, stepStart: {}, stepSecs: {}, timer: null };
@@ -174,6 +203,8 @@ function eventResult(e) {
       return { state: e.state, tag: st === "APPROVED" ? "Passed" : st ? st.charAt(0) + st.slice(1).toLowerCase() : "Done", text: e.message,
         detail: d.guardrail ? el("p", { class: "sb-note" }, "Rule ", el("code", {}, d.guardrail.code), ` · ${d.guardrail.verdict}`) : null };
     }
+    case "plan": return planResult(d);
+    case "summary": return summaryResult(d.summary, d.rejections, e.state === "bad");
     case "pay": return { state: e.state, tag: d.status === "APPROVED" ? `Paid ${money(d.paid)}` : d.status === "ESCALATED" ? "Held" : "Not paid", text: e.message };
     default: return { state: e.state, text: e.message };
   }
@@ -183,6 +214,13 @@ function stepResults(r) {
   const status = r.status;
   const revoked = status === "REVOKED";
   const out = {};
+  const orch = r.orchestration;
+  out.plan = orch ? planResult(orch)
+    : { state: revoked ? "skip" : "bad", tag: revoked ? "Skipped" : "No plan", text: revoked ? "The kill switch is on, so nothing was planned." : "No plan was made." };
+  const agg = orch && orch.aggregation;
+  out.summary = r.summary
+    ? summaryResult(r.summary, agg && agg.rejections, agg && agg.followed_embedded_instructions)
+    : { state: "skip", tag: "Skipped", text: "Not reached." };
 
   out.intake = r.case_id
     ? { state: "ok", tag: r.case_id, text: `Opened ${r.case_id} and emailed the beneficiary a receipt.` }
@@ -258,6 +296,7 @@ function renderOutcome(r) {
     el("div", { class: "pg-result-head" }, badge(r.status), r.case_id ? el("span", { class: "font-mono" }, r.case_id) : null),
     el("p", { class: "pg-result-title" }, title),
     r.reason ? el("p", { class: "pg-result-body" }, r.reason) : null,
+    r.summary ? el("p", { class: "pg-result-body" }, el("strong", {}, "Reply to the beneficiary: "), r.summary) : null,
     review));
 }
 
